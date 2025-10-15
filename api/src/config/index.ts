@@ -17,7 +17,7 @@ export interface Config {
   contracts: {
     nftContractAddress?: string;
     pairContractAddress?: string;
-    multiPoolManagerAddress?: string;
+    pairFactoryAddress?: string;
   };
   logging: {
     level: string;
@@ -48,7 +48,7 @@ const config: Config = {
   contracts: {
     nftContractAddress: process.env.NFT_CONTRACT_ADDRESS,
     pairContractAddress: process.env.PAIR_CONTRACT_ADDRESS,
-    multiPoolManagerAddress: process.env.MULTI_POOL_MANAGER_ADDRESS,
+    pairFactoryAddress: process.env.PAIR_FACTORY_ADDRESS,
   },
   logging: {
     level: process.env.LOG_LEVEL || 'info',

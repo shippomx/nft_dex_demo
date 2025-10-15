@@ -4,7 +4,7 @@
 
 ## 🚀 功能特性
 
-- **合约部署**: 部署 NFT 合约、Pair 合约、MultiPoolManager 合约
+- **合约部署**: 部署 NFT 合约、Pair 合约、PairFactory 合约
 - **流动性管理**: 创建池子、添加/删除流动性
 - **交易功能**: 买入/卖出 NFT、价格查询
 - **池子管理**: 多池系统管理、池子信息查询
@@ -122,7 +122,7 @@ Content-Type: application/json
 }
 ```
 
-#### 部署 MultiPoolManager 合约
+#### 部署 PairFactory 合约
 ```http
 POST /api/v1/deploy/multi-pool-manager
 Content-Type: application/json

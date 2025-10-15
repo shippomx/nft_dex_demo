@@ -259,27 +259,6 @@ export class PoolController {
   }
 
   /**
-   * 获取所有池子
-   */
-  async getAllPools(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      logger.info('Getting all pools');
-
-      const pools = await contractService.getAllPools();
-
-      logger.info('All pools retrieved successfully:', { pools });
-
-      return reply.send(successResponse({
-        pools,
-        count: pools.length,
-      }, 'All pools retrieved successfully'));
-    } catch (error) {
-      logger.error('Failed to get all pools:', error);
-      throw error;
-    }
-  }
-
-  /**
    * 获取池子储备量
    */
   async getPoolReserves(request: FastifyRequest, reply: FastifyReply) {

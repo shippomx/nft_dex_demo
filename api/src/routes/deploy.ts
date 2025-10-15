@@ -64,7 +64,7 @@ const deployPairSchema = {
   },
 };
 
-const deployMultiPoolManagerSchema = {
+const deployPairFactorySchema = {
   body: {
     type: 'object',
     properties: {},
@@ -98,7 +98,7 @@ const getDeployedContractsSchema = {
           properties: {
             nftContract: { type: 'string' },
             pairContract: { type: 'string' },
-            multiPoolManager: { type: 'string' },
+            pairFactory: { type: 'string' },
           },
         },
       },
@@ -112,7 +112,7 @@ const updateContractAddressesSchema = {
     properties: {
       nftContract: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
       pairContract: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
-      multiPoolManager: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+      pairFactory: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
     },
   },
   response: {
@@ -126,7 +126,7 @@ const updateContractAddressesSchema = {
           properties: {
             nftContract: { type: 'string' },
             pairContract: { type: 'string' },
-            multiPoolManager: { type: 'string' },
+            pairFactory: { type: 'string' },
           },
         },
       },
@@ -147,10 +147,10 @@ export async function deployRoutes(fastify: FastifyInstance) {
     handler: deployController.deployPair.bind(deployController),
   });
 
-  // 部署 MultiPoolManager 合约
-  fastify.post('/deploy/multi-pool-manager', {
-    schema: deployMultiPoolManagerSchema,
-    handler: deployController.deployMultiPoolManager.bind(deployController),
+  // 部署 PairFactory 合约
+  fastify.post('/deploy/pair-factory', {
+    schema: deployPairFactorySchema,
+    handler: deployController.deployPairFactory.bind(deployController),
   });
 
   // 获取已部署的合约地址

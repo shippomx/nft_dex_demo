@@ -79,26 +79,23 @@ export const Pair_ABI = [
   "event FeesWithdrawn(address indexed owner, uint256 amount)",
 ];
 
-// MultiPoolManager 合约 ABI
-export const MultiPoolManager_ABI = [
+// PairFactory 合约 ABI
+export const PairFactory_ABI = [
   // 构造函数
   "constructor()",
   
   // 池子管理方法
   "function createPool(address nftContract) external returns (address poolAddress)",
   "function getPoolAddress(address nftContract) external view returns (address poolAddress)",
-  "function removePool(address nftContract) external",
-  "function getAllPools() external view returns (address[] memory)",
-  "function isPool(address poolAddress) external view returns (bool)",
   
   // 管理方法
-  "function pause() public",
-  "function unpause() public",
+  "function owner() public view returns (address)",
   "function transferOwnership(address newOwner) public",
+  "function renounceOwnership() public",
   
   // 事件
-  "event PoolCreated(address indexed poolAddress)",
-  "event PoolUpdated(address indexed nftContract, address indexed oldPool, address indexed newPool)",
+  "event PoolCreated(address indexed poolAddress, address indexed nftContract)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
 ];
 
 // LPToken 合约 ABI

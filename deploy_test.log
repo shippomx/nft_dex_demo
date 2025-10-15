@@ -15,7 +15,7 @@ Script ran successfully.
   Preminted 20 NFTs for collection 3
   Pool 3 created at: 0xfB86816D199E34340a5e6aE6cCE4b34871c59779
   === Local Multi-Pool Deployment Summary ===
-  MultiPoolManager: 0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575
+  PairFactory: 0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575
   Pool Count: 3
   Pool 1 - NFT: 0xCD8a1C3ba11CF5ECfa6267617243239504a98d90
   Pool 1 - AMM: 0x029c12ED88495dd1FFc685fe4AcCd5a0Bea3c14B
@@ -23,5 +23,5 @@ Script ran successfully.
   Pool 2 - AMM: 0x6C2fe0632F3770497EE7707f6B16fB8FeD6da9b5
   Pool 3 - NFT: 0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
   Pool 3 - AMM: 0xfB86816D199E34340a5e6aE6cCE4b34871c59779
-Error: `MultiPoolManager` is above the contract size limit (26897 > 24576).
+Error: `PairFactory` is above the contract size limit (26897 > 24576).
 Error: IO error: not a terminal

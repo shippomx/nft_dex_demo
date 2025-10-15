@@ -22,8 +22,8 @@ interface DeployPairRequest {
   };
 }
 
-// 部署 MultiPoolManager 合约的请求接口
-interface DeployMultiPoolManagerRequest {
+// 部署 PairFactory 合约的请求接口
+interface DeployPairFactoryRequest {
   Body: {};
 }
 
@@ -94,21 +94,21 @@ export class DeployController {
   }
 
   /**
-   * 部署 MultiPoolManager 合约
+   * 部署 PairFactory 合约
    */
-  async deployMultiPoolManager(request: FastifyRequest<DeployMultiPoolManagerRequest>, reply: FastifyReply) {
+  async deployPairFactory(request: FastifyRequest<DeployPairFactoryRequest>, reply: FastifyReply) {
     try {
-      logger.info('Deploying MultiPoolManager contract');
+      logger.info('Deploying PairFactory contract');
 
-      const contractAddress = await contractService.deployMultiPoolManager();
+      const contractAddress = await contractService.deployPairFactory();
 
-      logger.info('MultiPoolManager contract deployed successfully:', { contractAddress });
+      logger.info('PairFactory contract deployed successfully:', { contractAddress });
 
       return reply.send(successResponse({
         contractAddress,
-      }, 'MultiPoolManager contract deployed successfully'));
+      }, 'PairFactory contract deployed successfully'));
     } catch (error) {
-      logger.error('Failed to deploy MultiPoolManager contract:', error);
+      logger.error('Failed to deploy PairFactory contract:', error);
       throw error;
     }
   }
@@ -136,28 +136,28 @@ export class DeployController {
     Body: {
       nftContract?: string;
       pairContract?: string;
-      multiPoolManager?: string;
+      pairFactory?: string;
     };
   }>, reply: FastifyReply) {
     try {
-      const { nftContract, pairContract, multiPoolManager } = request.body;
+      const { nftContract, pairContract, pairFactory } = request.body;
 
       contractService.updateAddresses({
         nftContract,
         pairContract,
-        multiPoolManager,
+        pairFactory,
       });
 
       logger.info('Contract addresses updated:', {
         nftContract,
         pairContract,
-        multiPoolManager,
+        pairFactory,
       });
 
       return reply.send(successResponse({
         nftContract,
         pairContract,
-        multiPoolManager,
+        pairFactory,
       }, 'Contract addresses updated successfully'));
     } catch (error) {
       logger.error('Failed to update contract addresses:', error);

@@ -5,14 +5,14 @@ import {Test, console} from "forge-std/Test.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {StandardNFT} from "../src/StandardNFT.sol";
 import {Pair} from "../src/Pair.sol";
-import {MultiPoolManager} from "../src/MultiPoolManager.sol";
+import {PairFactory} from "../src/PairFactory.sol";
 
 /**
  * @title MultiPoolManagerTest
  * @dev 多池管理器的测试套件
  */
 contract MultiPoolManagerTest is Test, IERC721Receiver {
-    MultiPoolManager public manager;
+    PairFactory public manager;
     StandardNFT public nft1;
     StandardNFT public nft2;
     StandardNFT public nft3;
@@ -33,7 +33,7 @@ contract MultiPoolManagerTest is Test, IERC721Receiver {
         user2 = makeAddr("user2");
         
         // 部署池子管理器
-        manager = new MultiPoolManager();
+        manager = new PairFactory();
         
         // 部署多个 NFT 合约
         nft1 = new StandardNFT(
@@ -251,19 +251,19 @@ contract MultiPoolManagerTest is Test, IERC721Receiver {
         manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
         
         // 尝试为同一个 NFT 合约创建另一个池子应该失败
-        vm.expectRevert(MultiPoolManager.PoolAlreadyExists.selector);
+        vm.expectRevert(PairFactory.PoolAlreadyExists.selector);
         manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
     }
 
     function testPoolNotFound() public {
         // 尝试获取不存在的池子应该失败
-        vm.expectRevert(MultiPoolManager.PoolNotFound.selector);
+        vm.expectRevert(PairFactory.PoolNotFound.selector);
         manager.getPool(address(nft1));
         
-        vm.expectRevert(MultiPoolManager.PoolNotFound.selector);
+        vm.expectRevert(PairFactory.PoolNotFound.selector);
         manager.getCurrentPrice(address(nft1));
         
-        vm.expectRevert(MultiPoolManager.PoolNotFound.selector);
+        vm.expectRevert(PairFactory.PoolNotFound.selector);
         manager.getPoolReserves(address(nft1));
     }
 

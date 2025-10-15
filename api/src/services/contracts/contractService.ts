@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { web3Service } from '../web3Service';
-import { StandardNFT_ABI, Pair_ABI, MultiPoolManager_ABI, LPToken_ABI } from './abis';
+import { StandardNFT_ABI, Pair_ABI, PairFactory_ABI, LPToken_ABI } from './abis';
 import { ContractError, BlockchainError } from '../../utils/errors';
 import { bytecodeLoader, ContractInfo } from './bytecodeLoader';
 import logger from '../../utils/logger';
@@ -8,7 +8,7 @@ import logger from '../../utils/logger';
 export interface ContractAddresses {
   nftContract?: string;
   pairContract?: string;
-  multiPoolManager?: string;
+  pairFactory?: string;
 }
 
 export interface TradeInfo {
@@ -417,17 +417,17 @@ export class ContractService {
     }
   }
 
-  // ==================== MultiPoolManager 合约方法 ====================
+  // ==================== PairFactory 合约方法 ====================
 
   /**
-   * 部署 MultiPoolManager 合约
+   * 部署 PairFactory 合约
    */
-  async deployMultiPoolManager(): Promise<string> {
+  async deployPairFactory(): Promise<string> {
     try {
-      logger.info('Deploying MultiPoolManager contract');
+      logger.info('Deploying PairFactory contract');
 
       // 从 Foundry 编译输出加载合约字节码
-      const contractInfo = await bytecodeLoader.loadContract('MultiPoolManager');
+      const contractInfo = await bytecodeLoader.loadContract('PairFactory');
       
       const factory = new ethers.ContractFactory(
         contractInfo.abi,
@@ -439,13 +439,13 @@ export class ContractService {
       await contract.waitForDeployment();
       const address = await contract.getAddress();
 
-      this.addresses.multiPoolManager = address;
-      logger.info('MultiPoolManager contract deployed:', { address });
+      this.addresses.pairFactory = address;
+      logger.info('PairFactory contract deployed:', { address });
 
       return address;
     } catch (error) {
-      logger.error('Failed to deploy MultiPoolManager contract:', error);
-      throw new ContractError(`Failed to deploy MultiPoolManager contract: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error('Failed to deploy PairFactory contract:', error);
+      throw new ContractError(`Failed to deploy PairFactory contract: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -453,14 +453,14 @@ export class ContractService {
    * 创建新池子
    */
   async createPool(nftContractAddress: string): Promise<string> {
-    if (!this.addresses.multiPoolManager) {
-      throw new ContractError('MultiPoolManager contract address not set');
+    if (!this.addresses.pairFactory) {
+      throw new ContractError('PairFactory contract address not set');
     }
 
     try {
       const tx = await web3Service.callContractWrite(
-        this.addresses.multiPoolManager,
-        MultiPoolManager_ABI as any,
+        this.addresses.pairFactory,
+        PairFactory_ABI as any,
         'createPool',
         [nftContractAddress]
       );
@@ -537,14 +537,14 @@ export class ContractService {
    * 获取池子地址
    */
   async getPool(nftContractAddress: string): Promise<string> {
-    if (!this.addresses.multiPoolManager) {
-      throw new ContractError('MultiPoolManager contract address not set');
+    if (!this.addresses.pairFactory) {
+      throw new ContractError('PairFactory contract address not set');
     }
 
     try {
       const poolAddress = await web3Service.callContract(
-        this.addresses.multiPoolManager,
-        MultiPoolManager_ABI as any,
+        this.addresses.pairFactory,
+        PairFactory_ABI as any,
         'getPoolAddress',
         [nftContractAddress]
       );
@@ -553,28 +553,6 @@ export class ContractService {
     } catch (error) {
       logger.error('Failed to get pool:', error);
       throw new ContractError(`Failed to get pool: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * 获取所有池子
-   */
-  async getAllPools(): Promise<string[]> {
-    if (!this.addresses.multiPoolManager) {
-      throw new ContractError('MultiPoolManager contract address not set');
-    }
-
-    try {
-      const pools = await web3Service.callContract(
-        this.addresses.multiPoolManager,
-        MultiPoolManager_ABI as any,
-        'getAllPools'
-      );
-
-      return pools;
-    } catch (error) {
-      logger.error('Failed to get all pools:', error);
-      throw new ContractError(`Failed to get all pools: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

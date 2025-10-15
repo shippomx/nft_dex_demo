@@ -4,14 +4,14 @@ pragma solidity ^0.8.20;
 import {Test, console} from "forge-std/Test.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {StandardNFT} from "../src/StandardNFT.sol";
-import {MultiPoolManager} from "../src/MultiPoolManager.sol";
+import {PairFactory} from "../src/PairFactory.sol";
 
 /**
  * @title CreatePoolValueTest
  * @dev 测试 createPool 函数从 msg.value 获取 ETH
  */
 contract CreatePoolValueTest is Test, IERC721Receiver {
-    MultiPoolManager public manager;
+    PairFactory public manager;
     StandardNFT public nft;
     
     address public owner;
@@ -33,7 +33,7 @@ contract CreatePoolValueTest is Test, IERC721Receiver {
         );
         
         // 部署池子管理器
-        manager = new MultiPoolManager();
+        manager = new PairFactory();
         
         // 预铸造 NFT
         nft.premint(owner, NFT_COUNT);
@@ -126,7 +126,7 @@ contract CreatePoolValueTest is Test, IERC721Receiver {
         }
         
         // 尝试用 0 ETH 创建池子应该失败
-        vm.expectRevert(MultiPoolManager.InvalidAmount.selector);
+        vm.expectRevert(PairFactory.InvalidAmount.selector);
         manager.createPool{value: 0}(address(nft), tokenIds);
     }
     

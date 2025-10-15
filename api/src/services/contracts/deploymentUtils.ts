@@ -269,12 +269,12 @@ export class DeploymentUtils {
   }
 
   /**
-   * 创建 MultiPoolManager 部署配置
+   * 创建 PairFactory 部署配置
    * @returns 部署配置
    */
   static createMultiPoolManagerConfig(): DeploymentConfig {
     return {
-      contractName: 'MultiPoolManager',
+      contractName: 'PairFactory',
       constructorArgs: [],
     };
   }

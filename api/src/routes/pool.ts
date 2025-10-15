@@ -211,26 +211,6 @@ const getPoolInfoSchema = {
   },
 };
 
-// 获取所有池子的请求模式
-const getAllPoolsSchema = {
-  response: {
-    200: {
-      type: 'object',
-      properties: {
-        success: { type: 'boolean' },
-        message: { type: 'string' },
-        data: {
-          type: 'object',
-          properties: {
-            pools: { type: 'array', items: { type: 'string' } },
-            count: { type: 'number' },
-          },
-        },
-      },
-    },
-  },
-};
-
 // 获取池子储备量的请求模式
 const getPoolReservesSchema = {
   response: {
@@ -286,12 +266,6 @@ export async function poolRoutes(fastify: FastifyInstance) {
   fastify.get('/pool/:nftContractAddress', {
     schema: getPoolInfoSchema,
     handler: poolController.getPoolInfo.bind(poolController),
-  });
-
-  // 获取所有池子
-  fastify.get('/pool', {
-    schema: getAllPoolsSchema,
-    handler: poolController.getAllPools.bind(poolController),
   });
 
   // 获取池子储备量

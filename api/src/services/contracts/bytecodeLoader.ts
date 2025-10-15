@@ -186,7 +186,7 @@ export class BytecodeLoader {
         'contracts',
         'StandardNFT',
         'Pair',
-        'MultiPoolManager',
+        'PairFactory',
         'LPToken'
       ];
       

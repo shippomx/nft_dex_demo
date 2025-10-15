@@ -6,14 +6,14 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {StandardNFT} from "../src/StandardNFT.sol";
 import {Pair} from "../src/Pair.sol";
-import {MultiPoolManager} from "../src/MultiPoolManager.sol";
+import {PairFactory} from "../src/PairFactory.sol";
 
 /**
  * @title UniqueLPTokenTest
  * @dev 测试每个池子都有独特的 LP token
  */
 contract UniqueLPTokenTest is Test, IERC721Receiver {
-    MultiPoolManager public manager;
+    PairFactory public manager;
     StandardNFT public nft1;
     StandardNFT public nft2;
     StandardNFT public nft3;
@@ -31,7 +31,7 @@ contract UniqueLPTokenTest is Test, IERC721Receiver {
         owner = address(this);
         
         // 部署池子管理器
-        manager = new MultiPoolManager();
+        manager = new PairFactory();
         
         // 部署不同的 NFT 合约
         nft1 = new StandardNFT(

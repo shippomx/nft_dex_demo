@@ -3,14 +3,14 @@ pragma solidity ^0.8.20;
 
 import {StandardNFT} from "../src/StandardNFT.sol";
 import {Pair} from "../src/Pair.sol";
-import {MultiPoolManager} from "../src/MultiPoolManager.sol";
+import {PairFactory} from "../src/PairFactory.sol";
 
 /**
  * @title MultiPoolExample
  * @dev 多池系统使用示例
  */
 contract MultiPoolExample {
-    MultiPoolManager public manager;
+    PairFactory public manager;
     StandardNFT public nft1;
     StandardNFT public nft2;
     
@@ -19,7 +19,7 @@ contract MultiPoolExample {
      */
     function exampleCreatePools() external payable {
         // 1. 部署池子管理器
-        manager = new MultiPoolManager();
+        manager = new PairFactory();
         
         // 2. 部署两个 NFT 集合
         nft1 = new StandardNFT(

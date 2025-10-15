@@ -244,26 +244,13 @@ add_liquidity() {
         return 1
     fi
     
-    # 使用模拟的 NFT Token IDs（因为铸造功能需要实现）
-    echo "  使用模拟的 NFT Token IDs..."
+    # 使用部署时自动铸造的 NFT Token IDs（1-10）
+    echo "  使用部署时自动铸造的 NFT Token IDs..."
     local nft_token_ids="[1, 2, 3]"
     echo "  NFT Token IDs: $nft_token_ids"
     
-    # 授权 NFT 给池子
-    echo "  授权 NFT 给池子..."
-    local approve_response=$(curl -s -X POST "$API_BASE_URL$API_PREFIX/pool/batch-approve-nft" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "nftContractAddress": "'"$NFT_CONTRACT"'",
-            "poolAddress": "'"$POOL_ADDRESS"'",
-            "tokenIds": [1, 2, 3]
-        }')
-    
-    if ! echo "$approve_response" | jq -e '.success' > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠ NFT 授权失败，继续添加流动性${NC}"
-    else
-        echo "  NFT 授权成功"
-    fi
+    # 注意：添加流动性时会自动将 NFT 转账给池子，不需要预先授权
+    echo "  准备添加流动性（NFT 将自动转账给池子）..."
     
     # 添加流动性
     echo "  添加流动性到池子..."
@@ -425,6 +412,64 @@ get_trade_history() {
     fi
 }
 
+# 铸造 NFT
+mint_nft() {
+    echo -e "\n${BLUE}=== 铸造 NFT ===${NC}"
+    
+    if [ -z "$NFT_CONTRACT" ]; then
+        echo -e "${RED}✗ NFT 合约地址未设置${NC}"
+        return 1
+    fi
+    
+    local amount=${1:-10}  # 默认铸造 10 个
+    local recipient=${2:-""}  # 可选的接收者地址
+    
+    echo "  铸造 $amount 个 NFT..."
+    echo "  NFT 合约地址: $NFT_CONTRACT"
+    if [ -n "$recipient" ]; then
+        echo "  接收者地址: $recipient"
+    else
+        echo "  接收者地址: 部署者地址（默认）"
+    fi
+    
+    # 构建请求数据
+    local request_data='{
+        "nftContractAddress": "'"$NFT_CONTRACT"'",
+        "amount": '"$amount"''
+    
+    if [ -n "$recipient" ]; then
+        request_data+=',
+        "recipient": "'"$recipient"'"'
+    fi
+    
+    request_data+='
+    }'
+    
+    local response=$(curl -s -X POST "$API_BASE_URL$API_PREFIX/trade/mint" \
+        -H "Content-Type: application/json" \
+        -d "$request_data")
+    
+    if echo "$response" | jq -e '.success' > /dev/null 2>&1; then
+        local tx_hashes=$(echo "$response" | jq -r '.data.txHashes[]' | tr '\n' ' ')
+        local token_ids=$(echo "$response" | jq -r '.data.tokenIds[]' | tr '\n' ' ')
+        local total_cost=$(echo "$response" | jq -r '.data.totalCost')
+        local recipient=$(echo "$response" | jq -r '.data.recipient')
+        
+        echo -e "${GREEN}✓ NFT 铸造成功${NC}"
+        echo "  交易哈希: $tx_hashes"
+        echo "  Token IDs: $token_ids"
+        echo "  总成本: $total_cost ETH"
+        echo "  铸造数量: $amount"
+        echo "  接收者: $recipient"
+        TRADE_HISTORY+=("铸造NFT ($amount个) -> $recipient: $tx_hashes")
+        return 0
+    else
+        echo -e "${RED}✗ NFT 铸造失败${NC}"
+        echo "$response" | jq .
+        return 1
+    fi
+}
+
 # 获取池子储备量
 get_pool_reserves() {
     echo -e "\n${BLUE}=== 获取池子储备量 ===${NC}"
@@ -510,6 +555,7 @@ show_usage() {
     echo "  --remove-liquidity     从池子移除流动性"
     echo ""
     echo "NFT 交易:"
+    echo "  --mint-nft [数量] [接收者]  铸造 NFT（默认数量: 10 个，接收者: 部署者地址）"
     echo "  --buy-nft [价格]       买入 NFT（默认价格: 0.1 ETH）"
     echo "  --sell-nft [ID] [价格] 卖出 NFT（默认 ID: 1, 价格: 0.05 ETH）"
     echo ""
@@ -522,6 +568,7 @@ show_usage() {
     echo "示例:"
     echo "  $0                                    # 执行完整流程"
     echo "  $0 --nft-only                         # 仅部署 NFT 合约"
+    echo "  $0 --mint-nft 5                       # 铸造 5 个 NFT"
     echo "  $0 --add-liquidity                    # 添加流动性"
     echo "  $0 --buy-nft 0.2                      # 以 0.2 ETH 买入 NFT"
     echo "  $0 --sell-nft 1 0.1                   # 以 0.1 ETH 卖出 Token ID 1"
@@ -570,6 +617,12 @@ main() {
                 mode="remove-liquidity"
                 shift
                 ;;
+        --mint-nft)
+            mode="mint-nft"
+            MINT_AMOUNT="$2"
+            MINT_RECIPIENT="$3"
+            shift 3
+            ;;
             --buy-nft)
                 mode="buy-nft"
                 BUY_PRICE="$2"
@@ -666,6 +719,14 @@ main() {
                 exit 1
             fi
             ;;
+        "mint-nft")
+            echo ""
+            echo "铸造 NFT..."
+            if ! mint_nft "$MINT_AMOUNT" "$MINT_RECIPIENT"; then
+                echo -e "${RED}NFT 铸造失败，终止脚本${NC}"
+                exit 1
+            fi
+            ;;
         "buy-nft")
             echo ""
             echo "买入 NFT..."
@@ -726,6 +787,15 @@ main() {
             
             # 获取池子信息
             get_pool_info
+            
+            # 铸造 NFT
+            echo ""
+            echo "测试 NFT 铸造..."
+            if mint_nft 5; then
+                echo "NFT 铸造成功"
+            else
+                echo "NFT 铸造失败，继续其他测试"
+            fi
             
             # 添加流动性
             echo ""

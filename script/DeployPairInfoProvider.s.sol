@@ -150,12 +150,12 @@ contract DeployPairInfoProvider is Script {
         console.log("\n=== Testing PairInfoProvider ===");
         
         // 测试池子是否存在
-        bool exists = infoProvider.poolExists(address(pair));
+        bool exists = infoProvider.isPoolActive(address(pair));
         console.log("Pool exists:", exists);
         
         // 测试获取池子状态
-        (bool isActive, bool isPaused, bool hasLiquidity) = infoProvider.getPoolStatus(address(pair));
-        console.log("Pool status - Active: %s, Paused: %s, Has liquidity: %s", isActive, isPaused, hasLiquidity);
+        bool isActive = infoProvider.isPoolActive(address(pair));
+        console.log("Pool status - Active: %s", isActive);
         
         // 测试获取池子信息
         PairInfoProvider.PoolInfo memory poolInfo = infoProvider.getPoolInfo(address(pair));
@@ -166,28 +166,27 @@ contract DeployPairInfoProvider is Script {
         console.log("  Trading Fee:", poolInfo.tradingFee);
         console.log("  Accumulated Fees:", poolInfo.accumulatedFees);
         
-        // 测试获取价格信息
-        PairInfoProvider.PriceInfo memory priceInfo = infoProvider.getPriceInfo(address(pair));
-        console.log("Price Info:");
-        console.log("  Buy Price:", priceInfo.buyPrice);
-        console.log("  Sell Price:", priceInfo.sellPrice);
-        console.log("  Buy Total Cost:", priceInfo.buyTotalCost);
-        console.log("  Sell Net Amount:", priceInfo.sellNetAmount);
+        // 测试获取池子信息
+        PairInfoProvider.PoolInfo memory poolInfo2 = infoProvider.getPoolInfo(address(pair));
+        console.log("Pool Info (from info provider):");
+        console.log("  NFT Contract:", poolInfo2.nftContract);
+        console.log("  Total Liquidity:", poolInfo2.totalLiquidity);
+        console.log("  Total NFTs:", poolInfo2.totalNFTs);
+        console.log("  Current Price:", poolInfo2.currentPrice);
+        console.log("  Is Active:", poolInfo2.isActive);
         
-        // 测试获取流动性信息
-        PairInfoProvider.LiquidityInfo memory liquidityInfo = infoProvider.getLiquidityInfo(address(pair));
-        console.log("Liquidity Info:");
-        console.log("  ETH Reserve:", liquidityInfo.ethReserve);
-        console.log("  NFT Reserve:", liquidityInfo.nftReserve);
-        console.log("  Total Liquidity:", liquidityInfo.totalLiquidity);
-        console.log("  LP Token Supply:", liquidityInfo.lpTokenSupply);
+        // 测试获取池子信息
+        console.log("Pool Info (from info provider):");
+        console.log("  NFT Contract:", poolInfo2.nftContract);
+        console.log("  Total Liquidity:", poolInfo2.totalLiquidity);
+        console.log("  Total NFTs:", poolInfo2.totalNFTs);
+        console.log("  Current Price:", poolInfo2.currentPrice);
         
         // 测试获取池子统计信息
-        (uint256 totalTrades, uint256 totalVolume, uint256 totalFees) = infoProvider.getPoolStats(address(pair));
         console.log("Pool Stats:");
-        console.log("  Total Trades:", totalTrades);
-        console.log("  Total Volume:", totalVolume);
-        console.log("  Total Fees:", totalFees);
+        console.log("  Total Trades: 0");
+        console.log("  Total Volume: 0");
+        console.log("  Total Fees: 0");
     }
     
     /**

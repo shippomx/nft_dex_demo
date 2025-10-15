@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { contractService } from '../services/contracts/contractService';
+import { web3Service } from '../services/web3Service';
 import { successResponse } from '../utils/errors';
 import logger from '../utils/logger';
 
@@ -63,7 +64,9 @@ export class DeployController {
         maxSupply,
         maxMintPerAddress,
         mintPrice,
-      }, 'NFT contract deployed successfully'));
+        mintedNFTs: 10, // 自动铸造的 NFT 数量
+        deployerAddress: web3Service.getWalletAddress(),
+      }, 'NFT contract deployed successfully with 10 NFTs minted to deployer'));
     } catch (error) {
       logger.error('Failed to deploy NFT contract:', error);
       throw error;

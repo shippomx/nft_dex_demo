@@ -10,6 +10,15 @@ interface BuyNFTRequest {
   };
 }
 
+// 铸造 NFT 的请求接口
+interface MintNFTRequest {
+  Body: {
+    nftContractAddress: string;
+    amount: number;
+    recipient?: string;
+  };
+}
+
 // 卖出 NFT 的请求接口
 interface SellNFTRequest {
   Body: {
@@ -34,6 +43,26 @@ interface GetTradeHistoryRequest {
 }
 
 export class TradeController {
+  /**
+   * 铸造 NFT
+   */
+  async mintNFT(request: FastifyRequest<MintNFTRequest>, reply: FastifyReply) {
+    try {
+      const { nftContractAddress, amount, recipient } = request.body;
+
+      logger.info('Minting NFTs:', { nftContractAddress, amount, recipient });
+
+      const result = await contractService.mintNFTs(nftContractAddress, amount, recipient);
+
+      logger.info('NFTs minted successfully:', result);
+
+      return reply.send(successResponse(result, 'NFTs minted successfully'));
+    } catch (error) {
+      logger.error('Failed to mint NFTs:', error);
+      throw error;
+    }
+  }
+
   /**
    * 买入 NFT
    */

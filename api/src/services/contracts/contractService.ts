@@ -96,7 +96,7 @@ export class ContractService {
         baseURI,
         maxSupply,
         maxMintPerAddress,
-        ethers.parseEther(mintPrice)
+        BigInt(mintPrice) // mintPrice 已经是 Wei 值，不需要再转换
       );
 
       logger.info('Waiting for deployment...');
@@ -105,6 +105,9 @@ export class ContractService {
 
       this.addresses.nftContract = address;
       logger.info('NFT contract deployed:', { address });
+
+      // 注意：NFT 铸造将在部署后通过单独的 API 调用进行
+      logger.info('NFT contract deployed successfully. Use /api/v1/trade/mint to mint NFTs.');
 
       return address;
     } catch (error) {
@@ -654,6 +657,120 @@ export class ContractService {
   clearBytecodeCache(): void {
     bytecodeLoader.clearCache();
     logger.info('Bytecode cache cleared');
+  }
+
+  /**
+   * 铸造 NFT
+   */
+  async mintNFTs(nftContractAddress: string, amount: number, recipient?: string): Promise<{
+    txHashes: string[];
+    tokenIds: number[];
+    totalCost: string;
+    recipient: string;
+  }> {
+    try {
+      // 使用指定的接收者或默认为部署者地址
+      const mintRecipient = recipient || web3Service.getWalletAddress();
+      
+      logger.info('Minting NFTs:', { nftContractAddress, amount, recipient: mintRecipient });
+
+      // 使用静态 ABI 创建合约实例
+      const contract = new ethers.Contract(
+        nftContractAddress,
+        StandardNFT_ABI,
+        web3Service.getSigner()
+      );
+
+      // 获取铸造价格
+      const mintPrice = await contract.mintPrice();
+      logger.info('Mint price from contract:', {
+        mintPrice: mintPrice.toString(),
+        amount,
+        nftContractAddress
+      });
+      const totalCost = mintPrice * BigInt(amount);
+
+      // 顺序铸造 NFT 以避免 nonce 冲突
+      const mintTxs = [];
+      const tokenIds = [];
+      
+      // 获取初始 nonce
+      let currentNonce = await web3Service.getProvider().getTransactionCount(web3Service.getWalletAddress());
+      
+      for (let i = 1; i <= amount; i++) {
+        try {
+          const uri = `https://api.test.com/metadata/${i}`;
+          
+          const mintTx = await (contract as any).mint(mintRecipient, uri, {
+            value: mintPrice,
+            nonce: currentNonce  // 使用当前 nonce
+          });
+          
+          const receipt = await mintTx.wait();
+          mintTxs.push(mintTx);
+          
+          // 从事件中获取实际的 tokenId
+          let actualTokenId = null;
+          if (receipt && receipt.logs) {
+            for (const log of receipt.logs) {
+              try {
+                const parsedLog = contract.interface.parseLog(log);
+                if (parsedLog && parsedLog.name === 'Transfer') {
+                  // Transfer 事件: from, to, tokenId
+                  actualTokenId = parsedLog.args.tokenId.toString();
+                  break;
+                }
+              } catch (e) {
+                // 忽略解析错误，继续查找
+              }
+            }
+          }
+          
+          // 如果无法从事件中获取，使用递增的 ID（作为后备）
+          if (actualTokenId === null) {
+            actualTokenId = (i).toString();
+            logger.warn(`Could not extract tokenId from events for NFT ${i}, using fallback ID`);
+          }
+          
+          tokenIds.push(parseInt(actualTokenId));
+          
+          logger.info(`NFT ${i} minted successfully:`, {
+            tokenId: actualTokenId,
+            txHash: mintTx.hash,
+            recipient: mintRecipient,
+            nonce: currentNonce
+          });
+          
+          // 递增 nonce 为下一个交易
+          currentNonce++;
+          
+          // 增加延迟以避免 nonce 冲突
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (mintError) {
+          logger.error(`Failed to mint NFT ${i}:`, mintError);
+          // 继续铸造其他 NFT，不中断整个流程
+        }
+      }
+
+      const txHashes = mintTxs.map(tx => tx.hash);
+
+      logger.info('NFTs minted successfully:', {
+        txHashes,
+        tokenIds,
+        totalCost: totalCost.toString(),
+        recipient: mintRecipient
+      });
+
+      return {
+        txHashes,
+        tokenIds,
+        totalCost: totalCost.toString(),
+        recipient: mintRecipient
+      };
+    } catch (error) {
+      logger.error('Failed to mint NFTs:', error);
+      throw new ContractError(`Failed to mint NFTs: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**

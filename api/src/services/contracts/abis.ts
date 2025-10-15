@@ -19,7 +19,8 @@ export const StandardNFT_ABI = [
   "function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public",
   
   // 自定义方法
-  "function mint(address to) public payable",
+  "function mint(address to, string memory uri) public payable",
+  "function batchMint(address to, string[] memory uris) public payable",
   "function premint(address to, uint256 count) public",
   "function burn(uint256 tokenId) public",
   "function pause() public",
@@ -28,6 +29,9 @@ export const StandardNFT_ABI = [
   "function setBaseURI(string memory newBaseURI) public",
   "function setMintPrice(uint256 newPrice) public",
   "function setMaxMintPerAddress(uint256 newMax) public",
+  "function mintPrice() public view returns (uint256)",
+  "function maxSupply() public view returns (uint256)",
+  "function maxMintPerAddress() public view returns (uint256)",
   
   // 事件
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",

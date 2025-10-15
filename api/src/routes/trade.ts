@@ -219,7 +219,44 @@ const getPoolReservesSchema = {
   },
 };
 
+// 铸造 NFT 的请求模式
+const mintNFTSchema = {
+  body: {
+    type: 'object',
+    required: ['nftContractAddress', 'amount'],
+    properties: {
+      nftContractAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+      amount: { type: 'number', minimum: 1, maximum: 10 },
+      recipient: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: {
+            txHashes: { type: 'array', items: { type: 'string' } },
+            tokenIds: { type: 'array', items: { type: 'number' } },
+            totalCost: { type: 'string' },
+            recipient: { type: 'string' },
+          },
+        },
+      },
+    },
+  },
+};
+
 export async function tradeRoutes(fastify: FastifyInstance) {
+  // 铸造 NFT
+  fastify.post('/trade/mint', {
+    schema: mintNFTSchema,
+    handler: tradeController.mintNFT.bind(tradeController),
+  });
+
   // 买入 NFT
   fastify.post('/trade/buy', {
     schema: buyNFTSchema,

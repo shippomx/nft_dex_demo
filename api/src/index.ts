@@ -11,6 +11,7 @@ import config from './config';
 import { deployRoutes } from './routes/deploy';
 import { poolRoutes } from './routes/pool';
 import { tradeRoutes } from './routes/trade';
+import { web3Routes } from './routes/web3';
 
 // 创建 Fastify 实例
 const fastify = Fastify({
@@ -120,6 +121,9 @@ async function registerRoutes() {
 
   // 注册交易路由
   await fastify.register(tradeRoutes, { prefix: config.api.prefix });
+
+  // 注册 Web3 路由
+  await fastify.register(web3Routes, { prefix: config.api.prefix });
 
   // 健康检查端点
   fastify.get('/health', async (request, reply) => {

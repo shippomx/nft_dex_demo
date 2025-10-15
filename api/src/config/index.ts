@@ -27,11 +27,6 @@ export interface Config {
     prefix: string;
     corsOrigin: string;
   };
-  security: {
-    jwtSecret: string;
-    rateLimitMax: number;
-    rateLimitTimeWindow: number;
-  };
 }
 
 const config: Config = {
@@ -57,11 +52,6 @@ const config: Config = {
   api: {
     prefix: process.env.API_PREFIX || '/api/v1',
     corsOrigin: process.env.CORS_ORIGIN || '*',
-  },
-  security: {
-    jwtSecret: process.env.JWT_SECRET || 'your_jwt_secret_here',
-    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
-    rateLimitTimeWindow: parseInt(process.env.RATE_LIMIT_TIME_WINDOW || '60000', 10),
   },
 };
 

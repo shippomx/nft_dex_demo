@@ -130,12 +130,13 @@ export class PoolController {
         nftContractAddress,
       });
 
-      const txHash = await contractService.createPool(nftContractAddress);
+      const result = await contractService.createPool(nftContractAddress);
 
-      logger.info('Pool created successfully:', { txHash });
+      logger.info('Pool created successfully:', result);
 
       return reply.send(successResponse({
-        txHash,
+        txHash: result.txHash,
+        poolAddress: result.poolAddress,
         nftContractAddress,
       }, 'Pool created successfully'));
     } catch (error) {

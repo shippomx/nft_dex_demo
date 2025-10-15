@@ -7,6 +7,7 @@ export class Web3Service {
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private signer: ethers.Wallet;
+  private nonce: number = 0;
 
   constructor() {
     try {
@@ -49,41 +50,7 @@ export class Web3Service {
     return this.wallet.address;
   }
 
-  /**
-   * 获取网络信息
-   */
-  async getNetworkInfo() {
-    try {
-      const network = await this.provider.getNetwork();
-      const blockNumber = await this.provider.getBlockNumber();
-      const feeData = await this.provider.getFeeData();
-      const gasPrice = feeData.gasPrice || BigInt(0);
-      
-      return {
-        chainId: Number(network.chainId),
-        name: network.name,
-        blockNumber,
-        gasPrice: gasPrice.toString(),
-      };
-    } catch (error) {
-      logger.error('Failed to get network info:', error);
-      throw new BlockchainError('Failed to get network information');
-    }
-  }
 
-  /**
-   * 获取账户余额
-   */
-  async getBalance(address?: string): Promise<string> {
-    try {
-      const targetAddress = address || this.wallet.address;
-      const balance = await this.provider.getBalance(targetAddress);
-      return ethers.formatEther(balance);
-    } catch (error) {
-      logger.error('Failed to get balance:', error);
-      throw new BlockchainError('Failed to get account balance');
-    }
-  }
 
   /**
    * 估算 Gas 费用
@@ -166,12 +133,6 @@ export class Web3Service {
       const contract = new ethers.Contract(contractAddress, abi, this.provider);
       const result = await contract[method](...params);
       
-      logger.debug('Contract call successful:', {
-        contract: contractAddress,
-        method,
-        params,
-        result: result.toString(),
-      });
 
       return result;
     } catch (error) {
@@ -193,24 +154,38 @@ export class Web3Service {
     try {
       const contract = new ethers.Contract(contractAddress, abi, this.signer);
       
-      const txOptions: any = {};
+      const txOptions: any = {
+        nonce: await this.getNextNonce()
+      };
       if (value) {
         txOptions.value = ethers.parseEther(value);
       }
 
-      const tx = await contract[method](...params, txOptions);
+      // 处理参数中的字符串，将ETH字符串转换为BigInt
+      const processedParams = params.map(param => {
+        if (typeof param === 'string' && param.includes('.')) {
+          // 假设包含小数点的字符串是ETH金额
+          return ethers.parseEther(param);
+        }
+        return param;
+      });
+
+      const tx = await contract[method](...processedParams, txOptions);
       
       logger.info('Contract write transaction sent:', {
         contract: contractAddress,
         method,
-        params,
+        params: processedParams.map(p => p.toString()),
+        nonce: txOptions.nonce,
         txHash: tx.hash,
       });
 
       return tx;
     } catch (error) {
-      logger.error('Contract write failed:', error);
-      throw new BlockchainError(`Contract write failed: ${error instanceof Error ? error.message : String(error)}`);
+      // 避免序列化BigInt，只记录错误消息
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Contract write failed:', { error: errorMessage });
+      throw new BlockchainError(`Contract write failed: ${errorMessage}`);
     }
   }
 
@@ -224,6 +199,50 @@ export class Web3Service {
     } catch (error) {
       logger.error('Failed to check contract deployment:', error);
       return false;
+    }
+  }
+
+  /**
+   * 解析事件日志
+   */
+  parseLog(log: any, abi: any[]): any {
+    try {
+      const contract = new ethers.Contract('0x0000000000000000000000000000000000000000', abi, this.provider);
+      return contract.interface.parseLog(log);
+    } catch (error) {
+      logger.error('Failed to parse log:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 获取下一个 nonce
+   */
+  async getNextNonce(): Promise<number> {
+    try {
+      const currentNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+      // 确保nonce始终是最新的
+      this.nonce = currentNonce;
+      return this.nonce++;
+    } catch (error) {
+      logger.error('Failed to get nonce:', error);
+      // 如果获取失败，使用当前nonce并递增
+      return this.nonce++;
+    }
+  }
+
+  /**
+   * 重置 nonce
+   */
+  async resetNonce(): Promise<void> {
+    try {
+      // 获取最新的nonce
+      const latestNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+      this.nonce = latestNonce;
+      logger.info('Nonce reset:', { nonce: this.nonce });
+    } catch (error) {
+      logger.error('Failed to reset nonce:', error);
+      throw new BlockchainError(`Failed to reset nonce: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

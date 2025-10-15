@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { web3Service } from '../web3Service';
-import { StandardNFT_ABI, Pair_ABI, PairFactory_ABI, LPToken_ABI } from './abis';
+import { StandardNFT_ABI, Pair_ABI, PairFactory_ABI } from './abis';
 import { ContractError, BlockchainError } from '../../utils/errors';
 import { bytecodeLoader, ContractInfo } from './bytecodeLoader';
 import logger from '../../utils/logger';
@@ -21,6 +21,8 @@ export interface TradeInfo {
 export interface PoolReserves {
   ethReserve: string;
   nftReserve: number;
+  totalLiquidity: string;
+  lpTokens: string;
 }
 
 export interface BuyQuote {
@@ -96,7 +98,7 @@ export class ContractService {
         baseURI,
         maxSupply,
         maxMintPerAddress,
-        BigInt(mintPrice) // mintPrice 已经是 Wei 值，不需要再转换
+        ethers.parseEther(mintPrice) // 将 ETH 转换为 Wei
       );
 
       logger.info('Waiting for deployment...');
@@ -120,63 +122,7 @@ export class ContractService {
     }
   }
 
-  /**
-   * 铸造 NFT
-   */
-  async mintNFT(to: string, value?: string): Promise<string> {
-    if (!this.addresses.nftContract) {
-      throw new ContractError('NFT contract address not set');
-    }
 
-    try {
-      const tx = await web3Service.callContractWrite(
-        this.addresses.nftContract,
-        StandardNFT_ABI as any,
-        'mint',
-        [to],
-        value
-      );
-
-      const receipt = await web3Service.waitForTransaction(tx.hash);
-      return receipt.hash;
-    } catch (error) {
-      logger.error('Failed to mint NFT:', error);
-      throw new ContractError(`Failed to mint NFT: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * 获取 NFT 信息
-   */
-  async getNFTInfo(): Promise<{
-    name: string;
-    symbol: string;
-    totalSupply: string;
-    balance: string;
-  }> {
-    if (!this.addresses.nftContract) {
-      throw new ContractError('NFT contract address not set');
-    }
-
-    try {
-      const [name, symbol, totalSupply, balance] = await Promise.all([
-        web3Service.callContract(this.addresses.nftContract, StandardNFT_ABI, 'name'),
-        web3Service.callContract(this.addresses.nftContract, StandardNFT_ABI, 'symbol'),
-        web3Service.callContract(this.addresses.nftContract, StandardNFT_ABI, 'totalSupply'),
-        web3Service.callContract(this.addresses.nftContract, StandardNFT_ABI, 'balanceOf', [web3Service.getWalletAddress()]),
-      ]);
-
-      return {
-        name,
-        symbol,
-        totalSupply: totalSupply.toString(),
-        balance: balance.toString(),
-      };
-    } catch (error) {
-      logger.error('Failed to get NFT info:', error);
-      throw new ContractError(`Failed to get NFT info: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
 
   // ==================== Pair 合约方法 ====================
 
@@ -248,7 +194,7 @@ export class ContractService {
         this.addresses.pairContract,
         Pair_ABI as any,
         'buyNFT',
-        [ethers.parseEther(maxPrice)],
+        [maxPrice],
         maxPrice
       );
 
@@ -273,7 +219,7 @@ export class ContractService {
         this.addresses.pairContract,
         Pair_ABI as any,
         'sellNFT',
-        [tokenId, ethers.parseEther(minPrice)]
+        [tokenId, minPrice]
       );
 
       const receipt = await web3Service.waitForTransaction(tx.hash);
@@ -368,9 +314,27 @@ export class ContractService {
         'getPoolReserves'
       );
 
+      // 获取LP代币总供应量
+      const lpTokenAddress = await web3Service.callContract(
+        this.addresses.pairContract,
+        Pair_ABI as any,
+        'lpToken'
+      );
+
+      const totalSupply = await web3Service.callContract(
+        lpTokenAddress,
+        ['function totalSupply() public view returns (uint256)'],
+        'totalSupply'
+      );
+
+      // 计算总流动性（ETH储备量）
+      const totalLiquidity = ethers.formatEther(ethReserve);
+
       return {
         ethReserve: ethers.formatEther(ethReserve),
         nftReserve: Number(nftReserve),
+        totalLiquidity: totalLiquidity,
+        lpTokens: ethers.formatEther(totalSupply),
       };
     } catch (error) {
       logger.error('Failed to get pool reserves:', error);
@@ -468,7 +432,7 @@ export class ContractService {
   /**
    * 创建新池子
    */
-  async createPool(nftContractAddress: string): Promise<string> {
+  async createPool(nftContractAddress: string): Promise<{ txHash: string; poolAddress: string }> {
     if (!this.addresses.pairFactory) {
       throw new ContractError('PairFactory contract address not set');
     }
@@ -482,7 +446,49 @@ export class ContractService {
       );
 
       const receipt = await web3Service.waitForTransaction(tx.hash);
-      return receipt.hash;
+      
+      // 从事件日志中获取池子地址
+      let poolAddress = '';
+      if (receipt && receipt.logs) {
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = web3Service.parseLog(log, PairFactory_ABI);
+            if (parsedLog && parsedLog.name === 'PoolCreated') {
+              poolAddress = parsedLog.args.poolAddress;
+              logger.info('Pool address extracted from event:', { poolAddress });
+              break;
+            }
+          } catch (e) {
+            // 忽略解析错误，继续查找
+          }
+        }
+      }
+
+      // 如果无法从事件中获取，尝试直接调用合约方法
+      if (!poolAddress) {
+        try {
+          poolAddress = await web3Service.callContract(
+            this.addresses.pairFactory,
+            PairFactory_ABI as any,
+            'getPoolAddress',
+            [nftContractAddress]
+          );
+          logger.info('Pool address retrieved from contract:', { poolAddress });
+        } catch (e) {
+          logger.warn('Failed to get pool address from contract:', e);
+        }
+      }
+
+      // 存储池子地址
+      if (poolAddress) {
+        this.addresses.pairContract = poolAddress;
+        logger.info('Pool address stored:', { poolAddress });
+      }
+
+      return {
+        txHash: receipt.hash,
+        poolAddress: poolAddress || ''
+      };
     } catch (error) {
       logger.error('Failed to create pool:', error);
       throw new ContractError(`Failed to create pool: ${error instanceof Error ? error.message : String(error)}`);
@@ -574,82 +580,8 @@ export class ContractService {
 
   // ==================== 通用部署方法 ====================
 
-  /**
-   * 动态部署合约
-   * @param contractName 合约名称
-   * @param constructorArgs 构造函数参数
-   * @param value 发送的 ETH 值（可选）
-   * @returns 部署的合约地址
-   */
-  async deployContract(
-    contractName: string,
-    constructorArgs: any[] = [],
-    value?: string
-  ): Promise<string> {
-    try {
-      logger.info('Deploying contract dynamically:', {
-        contractName,
-        constructorArgs,
-        value,
-      });
 
-      // 从 Foundry 编译输出加载合约字节码
-      const contractInfo = await bytecodeLoader.loadContract(contractName);
-      
-      const factory = new ethers.ContractFactory(
-        contractInfo.abi,
-        contractInfo.bytecode,
-        web3Service.getSigner()
-      );
 
-      const deployOptions: any = {};
-      if (value) {
-        deployOptions.value = ethers.parseEther(value);
-      }
-
-      const contract = await factory.deploy(...constructorArgs, deployOptions);
-      await contract.waitForDeployment();
-      const address = await contract.getAddress();
-
-      logger.info('Contract deployed successfully:', {
-        contractName,
-        address,
-        constructorArgs,
-      });
-
-      return address;
-    } catch (error) {
-      logger.error('Failed to deploy contract:', error);
-      throw new ContractError(`Failed to deploy contract ${contractName}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * 获取可用合约列表
-   * @returns 可用合约名称列表
-   */
-  async getAvailableContracts(): Promise<string[]> {
-    try {
-      return await bytecodeLoader.listAvailableContracts();
-    } catch (error) {
-      logger.error('Failed to get available contracts:', error);
-      throw new ContractError(`Failed to get available contracts: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * 获取合约信息
-   * @param contractName 合约名称
-   * @returns 合约信息
-   */
-  async getContractInfo(contractName: string): Promise<ContractInfo> {
-    try {
-      return await bytecodeLoader.loadContract(contractName);
-    } catch (error) {
-      logger.error('Failed to get contract info:', error);
-      throw new ContractError(`Failed to get contract info for ${contractName}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
 
   /**
    * 清除字节码缓存
@@ -683,11 +615,6 @@ export class ContractService {
 
       // 获取铸造价格
       const mintPrice = await contract.mintPrice();
-      logger.info('Mint price from contract:', {
-        mintPrice: mintPrice.toString(),
-        amount,
-        nftContractAddress
-      });
       const totalCost = mintPrice * BigInt(amount);
 
       // 准备批量铸造的 URI 数组
@@ -695,8 +622,6 @@ export class ContractService {
       for (let i = 1; i <= amount; i++) {
         uris.push(`https://api.test.com/metadata/${i}`);
       }
-
-      logger.info('Preparing batch mint with URIs:', { uris });
 
       // 使用批量铸造功能
       const batchMintTx = await (contract as any).batchMint(mintRecipient, uris, {
@@ -732,7 +657,6 @@ export class ContractService {
             }
           } catch (e) {
             // 忽略解析错误，继续查找
-            logger.debug('Failed to parse log:', e);
           }
         }
       }
@@ -745,18 +669,10 @@ export class ContractService {
         }
       }
 
-      logger.info('NFTs batch minted successfully:', {
-        txHash: batchMintTx.hash,
-        tokenIds,
-        totalCost: totalCost.toString(),
-        recipient: mintRecipient,
-        amount
-      });
-
       return {
         txHashes: [batchMintTx.hash],
         tokenIds,
-        totalCost: totalCost.toString(),
+        totalCost: ethers.formatEther(totalCost),
         recipient: mintRecipient
       };
     } catch (error) {

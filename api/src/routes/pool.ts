@@ -224,6 +224,8 @@ const getPoolReservesSchema = {
           properties: {
             ethReserve: { type: 'string' },
             nftReserve: { type: 'number' },
+            totalLiquidity: { type: 'string' },
+            lpTokens: { type: 'string' },
           },
         },
       },

@@ -61,6 +61,7 @@ export const Pair_ABI = [
   "function getSellPrice() public view returns (uint256)",
   "function getBuyQuote() public view returns (uint256 totalCost, uint256 fee)",
   "function getPoolReserves() external view returns (uint256 ethReserve, uint256 nftReserveCount)",
+  "function lpToken() public view returns (address)",
   
   // 交易历史方法
   "function getTradeHistory() external view returns (tuple(address trader, bool isBuy, uint256 price, uint256 timestamp)[] memory)",

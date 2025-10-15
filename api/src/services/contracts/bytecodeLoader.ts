@@ -99,7 +99,6 @@ export class BytecodeLoader {
     
     // 检查缓存
     if (this.cache.has(cacheKey)) {
-      logger.debug('Contract loaded from cache', { contractName, sourceName });
       return this.cache.get(cacheKey)!;
     }
 
@@ -150,11 +149,6 @@ export class BytecodeLoader {
             throw new Error(`Invalid artifact: missing abi or bytecode`);
           }
           
-          logger.debug('Artifact loaded from file', {
-            filePath,
-            contractName: artifact.contractName,
-            sourceName: artifact.sourceName,
-          });
           
           return artifact;
         }
@@ -205,42 +199,6 @@ export class BytecodeLoader {
     return paths;
   }
 
-  /**
-   * 列出所有可用的合约
-   * @returns 合约名称列表
-   */
-  async listAvailableContracts(): Promise<string[]> {
-    try {
-      const contracts: string[] = [];
-      
-      if (!fs.existsSync(this.artifactsPath)) {
-        logger.warn('Artifacts path does not exist', { artifactsPath: this.artifactsPath });
-        return contracts;
-      }
-      
-      const entries = fs.readdirSync(this.artifactsPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const contractDir = path.join(this.artifactsPath, entry.name);
-          const contractFiles = fs.readdirSync(contractDir);
-          
-          for (const file of contractFiles) {
-            if (file.endsWith('.json')) {
-              const contractName = path.basename(file, '.json');
-              contracts.push(contractName);
-            }
-          }
-        }
-      }
-      
-      logger.info('Available contracts listed', { count: contracts.length, contracts });
-      return contracts;
-    } catch (error) {
-      logger.error('Failed to list available contracts:', error);
-      return [];
-    }
-  }
 
   /**
    * 清除缓存

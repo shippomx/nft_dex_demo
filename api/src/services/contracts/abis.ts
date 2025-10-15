@@ -38,6 +38,7 @@ export const StandardNFT_ABI = [
   "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)",
   "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
   "event Minted(address indexed to, uint256 tokenId, uint256 price)",
+  "event BatchMinted(address indexed to, uint256[] tokenIds)",
   "event Burned(uint256 indexed tokenId)",
   "event Paused(address account)",
   "event Unpaused(address account)",

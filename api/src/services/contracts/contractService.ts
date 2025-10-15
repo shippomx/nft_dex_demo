@@ -660,7 +660,7 @@ export class ContractService {
   }
 
   /**
-   * 铸造 NFT
+   * 铸造 NFT（使用批量铸造优化）
    */
   async mintNFTs(nftContractAddress: string, amount: number, recipient?: string): Promise<{
     txHashes: string[];
@@ -672,7 +672,7 @@ export class ContractService {
       // 使用指定的接收者或默认为部署者地址
       const mintRecipient = recipient || web3Service.getWalletAddress();
       
-      logger.info('Minting NFTs:', { nftContractAddress, amount, recipient: mintRecipient });
+      logger.info('Minting NFTs using batch mint:', { nftContractAddress, amount, recipient: mintRecipient });
 
       // 使用静态 ABI 创建合约实例
       const contract = new ethers.Contract(
@@ -690,86 +690,78 @@ export class ContractService {
       });
       const totalCost = mintPrice * BigInt(amount);
 
-      // 顺序铸造 NFT 以避免 nonce 冲突
-      const mintTxs = [];
-      const tokenIds = [];
-      
-      // 获取初始 nonce
-      let currentNonce = await web3Service.getProvider().getTransactionCount(web3Service.getWalletAddress());
-      
+      // 准备批量铸造的 URI 数组
+      const uris = [];
       for (let i = 1; i <= amount; i++) {
-        try {
-          const uri = `https://api.test.com/metadata/${i}`;
-          
-          const mintTx = await (contract as any).mint(mintRecipient, uri, {
-            value: mintPrice,
-            nonce: currentNonce  // 使用当前 nonce
-          });
-          
-          const receipt = await mintTx.wait();
-          mintTxs.push(mintTx);
-          
-          // 从事件中获取实际的 tokenId
-          let actualTokenId = null;
-          if (receipt && receipt.logs) {
-            for (const log of receipt.logs) {
-              try {
-                const parsedLog = contract.interface.parseLog(log);
-                if (parsedLog && parsedLog.name === 'Transfer') {
-                  // Transfer 事件: from, to, tokenId
-                  actualTokenId = parsedLog.args.tokenId.toString();
-                  break;
-                }
-              } catch (e) {
-                // 忽略解析错误，继续查找
-              }
+        uris.push(`https://api.test.com/metadata/${i}`);
+      }
+
+      logger.info('Preparing batch mint with URIs:', { uris });
+
+      // 使用批量铸造功能
+      const batchMintTx = await (contract as any).batchMint(mintRecipient, uris, {
+        value: totalCost
+      });
+
+      logger.info('Batch mint transaction sent:', {
+        txHash: batchMintTx.hash,
+        recipient: mintRecipient,
+        amount,
+        totalCost: totalCost.toString()
+      });
+
+      // 等待交易确认
+      const receipt = await batchMintTx.wait();
+      logger.info('Batch mint transaction confirmed:', {
+        txHash: batchMintTx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      });
+
+      // 从 BatchMinted 事件中获取 tokenIds
+      let tokenIds = [];
+      if (receipt && receipt.logs) {
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = contract.interface.parseLog(log);
+            if (parsedLog && parsedLog.name === 'BatchMinted') {
+              // BatchMinted 事件: to, tokenIds
+              tokenIds = parsedLog.args.tokenIds.map((id: any) => parseInt(id.toString()));
+              logger.info('Extracted tokenIds from BatchMinted event:', { tokenIds });
+              break;
             }
+          } catch (e) {
+            // 忽略解析错误，继续查找
+            logger.debug('Failed to parse log:', e);
           }
-          
-          // 如果无法从事件中获取，使用递增的 ID（作为后备）
-          if (actualTokenId === null) {
-            actualTokenId = (i).toString();
-            logger.warn(`Could not extract tokenId from events for NFT ${i}, using fallback ID`);
-          }
-          
-          tokenIds.push(parseInt(actualTokenId));
-          
-          logger.info(`NFT ${i} minted successfully:`, {
-            tokenId: actualTokenId,
-            txHash: mintTx.hash,
-            recipient: mintRecipient,
-            nonce: currentNonce
-          });
-          
-          // 递增 nonce 为下一个交易
-          currentNonce++;
-          
-          // 增加延迟以避免 nonce 冲突
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (mintError) {
-          logger.error(`Failed to mint NFT ${i}:`, mintError);
-          // 继续铸造其他 NFT，不中断整个流程
         }
       }
 
-      const txHashes = mintTxs.map(tx => tx.hash);
+      // 如果无法从事件中获取 tokenIds，使用递增的 ID（作为后备）
+      if (tokenIds.length === 0) {
+        logger.warn('Could not extract tokenIds from BatchMinted event, using fallback IDs');
+        for (let i = 1; i <= amount; i++) {
+          tokenIds.push(i);
+        }
+      }
 
-      logger.info('NFTs minted successfully:', {
-        txHashes,
+      logger.info('NFTs batch minted successfully:', {
+        txHash: batchMintTx.hash,
         tokenIds,
         totalCost: totalCost.toString(),
-        recipient: mintRecipient
+        recipient: mintRecipient,
+        amount
       });
 
       return {
-        txHashes,
+        txHashes: [batchMintTx.hash],
         tokenIds,
         totalCost: totalCost.toString(),
         recipient: mintRecipient
       };
     } catch (error) {
-      logger.error('Failed to mint NFTs:', error);
-      throw new ContractError(`Failed to mint NFTs: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error('Failed to batch mint NFTs:', error);
+      throw new ContractError(`Failed to batch mint NFTs: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

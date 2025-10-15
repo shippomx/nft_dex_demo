@@ -81,7 +81,6 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
     function addInitialLiquidity(uint256[] calldata nftTokenIds) 
         external 
         payable 
-        onlyOwner 
         nonReentrant 
     {
         _addInitialLiquidity(nftTokenIds, msg.sender);
@@ -91,13 +90,13 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
     /**
      * @dev 内部添加初始流动性函数
      * @param nftTokenIds 要添加到池子的 NFT token IDs
-     * @param from 转移 NFT 的源地址
+     * @param from 转移 NFT 的源地址（用户地址）
      */
     function _addInitialLiquidity(uint256[] calldata nftTokenIds, address from) internal {
         require(nftTokenIds.length > 0, "No NFTs provided");
         require(msg.value > 0, "No ETH provided");
         
-        // 转移 NFT 到池子（from 是 NFT 的实际所有者，msg.sender 是池子管理器）
+        // 转移 NFT 到池子（用户需要预先授权NFT给池子）
         for (uint256 i = 0; i < nftTokenIds.length; i++) {
             nftContract.safeTransferFrom(from, address(this), nftTokenIds[i]);
         }

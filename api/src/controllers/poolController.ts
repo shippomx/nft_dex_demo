@@ -3,18 +3,35 @@ import { contractService } from '../services/contracts/contractService';
 import { successResponse } from '../utils/errors';
 import logger from '../utils/logger';
 
+// 授权NFT的请求接口
+interface ApproveNFTRequest {
+  Body: {
+    nftContractAddress: string;
+    poolAddress: string;
+    tokenId: number;
+  };
+}
+
+// 批量授权NFT的请求接口
+interface BatchApproveNFTRequest {
+  Body: {
+    nftContractAddress: string;
+    poolAddress: string;
+    tokenIds: number[];
+  };
+}
+
 // 创建池子的请求接口
 interface CreatePoolRequest {
   Body: {
     nftContractAddress: string;
-    nftTokenIds: number[];
-    ethAmount?: string;
   };
 }
 
 // 添加流动性的请求接口
 interface AddLiquidityRequest {
   Body: {
+    poolAddress: string;
     nftTokenIds: number[];
     ethAmount?: string;
   };
@@ -37,31 +54,89 @@ interface GetPoolInfoRequest {
 
 export class PoolController {
   /**
+   * 授权NFT给池子
+   */
+  async approveNFT(request: FastifyRequest<ApproveNFTRequest>, reply: FastifyReply) {
+    try {
+      const { nftContractAddress, poolAddress, tokenId } = request.body;
+
+      logger.info('Approving NFT:', {
+        nftContractAddress,
+        poolAddress,
+        tokenId,
+      });
+
+      const txHash = await contractService.approveNFT(
+        nftContractAddress,
+        poolAddress,
+        tokenId
+      );
+
+      logger.info('NFT approved successfully:', { txHash });
+
+      return reply.send(successResponse({
+        txHash,
+        nftContractAddress,
+        poolAddress,
+        tokenId,
+      }, 'NFT approved successfully'));
+    } catch (error) {
+      logger.error('Failed to approve NFT:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 批量授权NFT给池子
+   */
+  async batchApproveNFT(request: FastifyRequest<BatchApproveNFTRequest>, reply: FastifyReply) {
+    try {
+      const { nftContractAddress, poolAddress, tokenIds } = request.body;
+
+      logger.info('Batch approving NFTs:', {
+        nftContractAddress,
+        poolAddress,
+        tokenIds,
+      });
+
+      const txHashes = await contractService.batchApproveNFT(
+        nftContractAddress,
+        poolAddress,
+        tokenIds
+      );
+
+      logger.info('NFTs approved successfully:', { txHashes });
+
+      return reply.send(successResponse({
+        txHashes,
+        nftContractAddress,
+        poolAddress,
+        tokenIds,
+      }, 'NFTs approved successfully'));
+    } catch (error) {
+      logger.error('Failed to batch approve NFTs:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 创建流动性池
    */
   async createPool(request: FastifyRequest<CreatePoolRequest>, reply: FastifyReply) {
     try {
-      const { nftContractAddress, nftTokenIds, ethAmount } = request.body;
+      const { nftContractAddress } = request.body;
 
       logger.info('Creating pool:', {
         nftContractAddress,
-        nftTokenIds,
-        ethAmount,
       });
 
-      const txHash = await contractService.createPool(
-        nftContractAddress,
-        nftTokenIds,
-        ethAmount
-      );
+      const txHash = await contractService.createPool(nftContractAddress);
 
       logger.info('Pool created successfully:', { txHash });
 
       return reply.send(successResponse({
         txHash,
         nftContractAddress,
-        nftTokenIds,
-        ethAmount,
       }, 'Pool created successfully'));
     } catch (error) {
       logger.error('Failed to create pool:', error);
@@ -74,14 +149,16 @@ export class PoolController {
    */
   async addLiquidity(request: FastifyRequest<AddLiquidityRequest>, reply: FastifyReply) {
     try {
-      const { nftTokenIds, ethAmount } = request.body;
+      const { poolAddress, nftTokenIds, ethAmount } = request.body;
 
       logger.info('Adding liquidity:', {
+        poolAddress,
         nftTokenIds,
         ethAmount,
       });
 
-      const txHash = await contractService.addInitialLiquidity(
+      const txHash = await contractService.addLiquidityToPool(
+        poolAddress,
         nftTokenIds,
         ethAmount
       );
@@ -90,6 +167,7 @@ export class PoolController {
 
       return reply.send(successResponse({
         txHash,
+        poolAddress,
         nftTokenIds,
         ethAmount,
       }, 'Liquidity added successfully'));

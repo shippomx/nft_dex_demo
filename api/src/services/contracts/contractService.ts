@@ -452,7 +452,7 @@ export class ContractService {
   /**
    * 创建新池子
    */
-  async createPool(nftContractAddress: string, nftTokenIds: number[], ethAmount?: string): Promise<string> {
+  async createPool(nftContractAddress: string): Promise<string> {
     if (!this.addresses.multiPoolManager) {
       throw new ContractError('MultiPoolManager contract address not set');
     }
@@ -462,8 +462,7 @@ export class ContractService {
         this.addresses.multiPoolManager,
         MultiPoolManager_ABI as any,
         'createPool',
-        [nftContractAddress, nftTokenIds],
-        ethAmount
+        [nftContractAddress]
       );
 
       const receipt = await web3Service.waitForTransaction(tx.hash);
@@ -471,6 +470,66 @@ export class ContractService {
     } catch (error) {
       logger.error('Failed to create pool:', error);
       throw new ContractError(`Failed to create pool: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * 授权NFT给池子
+   */
+  async approveNFT(nftContractAddress: string, poolAddress: string, tokenId: number): Promise<string> {
+    try {
+      const tx = await web3Service.callContractWrite(
+        nftContractAddress,
+        StandardNFT_ABI as any,
+        'approve',
+        [poolAddress, tokenId]
+      );
+
+      const receipt = await web3Service.waitForTransaction(tx.hash);
+      return receipt.hash;
+    } catch (error) {
+      logger.error('Failed to approve NFT:', error);
+      throw new ContractError(`Failed to approve NFT: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * 批量授权NFT给池子
+   */
+  async batchApproveNFT(nftContractAddress: string, poolAddress: string, tokenIds: number[]): Promise<string[]> {
+    const txHashes: string[] = [];
+    
+    for (const tokenId of tokenIds) {
+      try {
+        const txHash = await this.approveNFT(nftContractAddress, poolAddress, tokenId);
+        txHashes.push(txHash);
+      } catch (error) {
+        logger.error(`Failed to approve NFT ${tokenId}:`, error);
+        throw new ContractError(`Failed to approve NFT ${tokenId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    
+    return txHashes;
+  }
+
+  /**
+   * 添加流动性到池子
+   */
+  async addLiquidityToPool(poolAddress: string, nftTokenIds: number[], ethAmount?: string): Promise<string> {
+    try {
+      const tx = await web3Service.callContractWrite(
+        poolAddress,
+        Pair_ABI as any,
+        'addInitialLiquidity',
+        [nftTokenIds],
+        ethAmount
+      );
+
+      const receipt = await web3Service.waitForTransaction(tx.hash);
+      return receipt.hash;
+    } catch (error) {
+      logger.error('Failed to add liquidity to pool:', error);
+      throw new ContractError(`Failed to add liquidity to pool: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -486,7 +545,7 @@ export class ContractService {
       const poolAddress = await web3Service.callContract(
         this.addresses.multiPoolManager,
         MultiPoolManager_ABI as any,
-        'getPool',
+        'getPoolAddress',
         [nftContractAddress]
       );
 

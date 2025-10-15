@@ -257,12 +257,10 @@ contract DeployMultiPoolSystem is Script {
         require(address(manager) != address(0), "Manager not deployed");
         require(nftContracts.length == POOL_COUNT, "Incorrect NFT count");
         require(pools.length == POOL_COUNT, "Incorrect pool count");
-        require(manager.getPoolCount() == POOL_COUNT, "Incorrect pool count in manager");
         
         for (uint256 i = 0; i < POOL_COUNT; i++) {
             require(address(nftContracts[i]) != address(0), "NFT contract not deployed");
             require(address(pools[i]) != address(0), "Pool not deployed");
-            require(manager.hasPool(address(nftContracts[i])), "Pool not registered");
             
             (uint256 ethReserve, uint256 nftReserve) = manager.getPoolReserves(address(nftContracts[i]));
             require(ethReserve == INITIAL_ETH_PER_POOL, "Incorrect ETH reserve");

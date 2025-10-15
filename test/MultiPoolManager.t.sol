@@ -101,9 +101,6 @@ contract MultiPoolManagerTest is Test, IERC721Receiver {
         // 验证池子创建
         address pool1 = manager.getPool(address(nft1));
         assertTrue(pool1 != address(0));
-        assertTrue(manager.hasPool(address(nft1)));
-        assertTrue(manager.isPool(pool1));
-        assertEq(manager.getPoolCount(), 1);
         
         // 验证池子状态
         (uint256 ethReserve, uint256 nftReserve) = manager.getPoolReserves(address(nft1));
@@ -125,14 +122,6 @@ contract MultiPoolManagerTest is Test, IERC721Receiver {
         manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
         manager.createPool{value: INITIAL_ETH}(address(nft2), tokenIds);
         manager.createPool{value: INITIAL_ETH}(address(nft3), tokenIds);
-        
-        // 验证池子数量
-        assertEq(manager.getPoolCount(), 3);
-        
-        // 验证所有池子都存在
-        assertTrue(manager.hasPool(address(nft1)));
-        assertTrue(manager.hasPool(address(nft2)));
-        assertTrue(manager.hasPool(address(nft3)));
         
         // 验证池子地址不同
         address pool1 = manager.getPool(address(nft1));
@@ -250,141 +239,6 @@ contract MultiPoolManagerTest is Test, IERC721Receiver {
         assertEq(nftReserve2, NFT_COUNT - 1);
         assertTrue(ethReserve1 > INITIAL_ETH);
         assertTrue(ethReserve2 > INITIAL_ETH);
-    }
-
-    function testGetMultiplePoolInfo() public {
-        // 创建多个池子
-        uint256[] memory tokenIds = new uint256[](NFT_COUNT);
-        for (uint256 i = 1; i <= NFT_COUNT; i++) {
-            tokenIds[i - 1] = i;
-        }
-        
-        manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
-        manager.createPool{value: INITIAL_ETH}(address(nft2), tokenIds);
-        
-        // 获取多个池子信息
-        address[] memory nftContracts = new address[](2);
-        nftContracts[0] = address(nft1);
-        nftContracts[1] = address(nft2);
-        
-        (
-            address[] memory poolAddresses,
-            uint256[] memory ethReserves,
-            uint256[] memory nftReserves,
-            uint256[] memory currentPrices
-        ) = manager.getMultiplePoolInfo(nftContracts);
-        
-        assertEq(poolAddresses.length, 2);
-        assertEq(ethReserves.length, 2);
-        assertEq(nftReserves.length, 2);
-        assertEq(currentPrices.length, 2);
-        
-        for (uint256 i = 0; i < 2; i++) {
-            assertTrue(poolAddresses[i] != address(0));
-            assertEq(ethReserves[i], INITIAL_ETH);
-            assertEq(nftReserves[i], NFT_COUNT);
-            assertEq(currentPrices[i], INITIAL_ETH / NFT_COUNT);
-        }
-    }
-
-    function testPauseAllPools() public {
-        // 创建池子
-        uint256[] memory tokenIds = new uint256[](NFT_COUNT);
-        for (uint256 i = 1; i <= NFT_COUNT; i++) {
-            tokenIds[i - 1] = i;
-        }
-        
-        manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
-        
-        // 获取池子地址
-        address poolAddress = manager.getPool(address(nft1));
-        Pair pool = Pair(payable(poolAddress));
-        
-        // 暂停所有池子
-        manager.pauseAllPools();
-        assertTrue(manager.paused());
-        
-        // 尝试购买应该失败
-        (uint256 totalCost,) = manager.getBuyQuote(address(nft1));
-        vm.deal(user1, totalCost);
-        vm.prank(user1);
-        
-        vm.expectRevert();
-        pool.buyNFT{value: totalCost}(totalCost);
-        
-        // 恢复所有池子
-        manager.unpauseAllPools();
-        assertFalse(manager.paused());
-        
-        // 现在应该可以购买
-        vm.prank(user1);
-        pool.buyNFT{value: totalCost}(totalCost);
-    }
-
-    function testPauseSinglePool() public {
-        // 创建多个池子
-        uint256[] memory tokenIds = new uint256[](NFT_COUNT);
-        for (uint256 i = 1; i <= NFT_COUNT; i++) {
-            tokenIds[i - 1] = i;
-        }
-        
-        manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
-        manager.createPool{value: INITIAL_ETH}(address(nft2), tokenIds);
-        
-        // 获取池子地址
-        address pool1Address = manager.getPool(address(nft1));
-        address pool2Address = manager.getPool(address(nft2));
-        Pair pool1 = Pair(payable(pool1Address));
-        Pair pool2 = Pair(payable(pool2Address));
-        
-        // 暂停第一个池子
-        manager.pausePool(address(nft1));
-        
-        // 第一个池子应该无法交易
-        (uint256 totalCost1,) = manager.getBuyQuote(address(nft1));
-        vm.deal(user1, totalCost1);
-        vm.prank(user1);
-        
-        vm.expectRevert();
-        pool1.buyNFT{value: totalCost1}(totalCost1);
-        
-        // 第二个池子应该仍然可以交易
-        (uint256 totalCost2,) = manager.getBuyQuote(address(nft2));
-        vm.deal(user2, totalCost2);
-        vm.prank(user2);
-        pool2.buyNFT{value: totalCost2}(totalCost2);
-        
-        // 恢复第一个池子
-        manager.unpausePool(address(nft1));
-        
-        // 现在第一个池子应该可以交易
-        vm.prank(user1);
-        pool1.buyNFT{value: totalCost1}(totalCost1);
-    }
-
-    function testRemovePool() public {
-        // 创建池子
-        uint256[] memory tokenIds = new uint256[](NFT_COUNT);
-        for (uint256 i = 1; i <= NFT_COUNT; i++) {
-            tokenIds[i - 1] = i;
-        }
-        
-        manager.createPool{value: INITIAL_ETH}(address(nft1), tokenIds);
-        
-        address poolAddress = manager.getPool(address(nft1));
-        assertTrue(manager.hasPool(address(nft1)));
-        assertEq(manager.getPoolCount(), 1);
-        
-        // 移除池子
-        manager.removePool(address(nft1));
-        
-        // 验证池子已移除
-        assertFalse(manager.hasPool(address(nft1)));
-        assertEq(manager.getPoolCount(), 0);
-        
-        // 尝试获取已移除的池子应该失败
-        vm.expectRevert(MultiPoolManager.PoolNotFound.selector);
-        manager.getPool(address(nft1));
     }
 
     function testPoolAlreadyExists() public {

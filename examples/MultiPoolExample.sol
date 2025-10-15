@@ -113,25 +113,6 @@ contract MultiPoolExample {
     }
     
     /**
-     * @dev 示例：批量查询多个池子
-     */
-    function exampleBatchQuery() external view returns (
-        address[] memory poolAddresses,
-        uint256[] memory ethReserves,
-        uint256[] memory nftReserves,
-        uint256[] memory prices
-    ) {
-        // 准备查询的 NFT 合约地址
-        address[] memory nftContracts = new address[](2);
-        nftContracts[0] = address(nft1);
-        nftContracts[1] = address(nft2);
-        
-        // 批量查询
-        (poolAddresses, ethReserves, nftReserves, prices) = 
-            manager.getMultiplePoolInfo(nftContracts);
-    }
-    
-    /**
      * @dev 示例：暂停和恢复池子
      */
     function examplePauseControl() external {

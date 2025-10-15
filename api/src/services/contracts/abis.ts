@@ -85,9 +85,9 @@ export const MultiPoolManager_ABI = [
   "constructor()",
   
   // 池子管理方法
-  "function createPool(address nftContract, uint256[] calldata nftTokenIds) external payable returns (address poolAddress)",
+  "function createPool(address nftContract) external returns (address poolAddress)",
+  "function getPoolAddress(address nftContract) external view returns (address poolAddress)",
   "function removePool(address nftContract) external",
-  "function getPool(address nftContract) external view returns (address)",
   "function getAllPools() external view returns (address[] memory)",
   "function isPool(address poolAddress) external view returns (bool)",
   
@@ -97,8 +97,7 @@ export const MultiPoolManager_ABI = [
   "function transferOwnership(address newOwner) public",
   
   // 事件
-  "event PoolCreated(address indexed nftContract, address indexed poolAddress, uint256 poolIndex)",
-  "event PoolRemoved(address indexed nftContract, address indexed poolAddress)",
+  "event PoolCreated(address indexed poolAddress)",
   "event PoolUpdated(address indexed nftContract, address indexed oldPool, address indexed newPool)",
 ];
 

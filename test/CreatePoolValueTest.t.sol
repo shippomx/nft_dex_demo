@@ -69,7 +69,6 @@ contract CreatePoolValueTest is Test, IERC721Receiver {
         // 验证池子创建成功
         address poolAddress = manager.getPool(address(nft));
         assertTrue(poolAddress != address(0), "Pool should be created");
-        assertTrue(manager.hasPool(address(nft)), "Pool should exist");
         
         console.log("Pool created at:", poolAddress);
         console.log("ETH sent:", INITIAL_ETH);
@@ -115,9 +114,6 @@ contract CreatePoolValueTest is Test, IERC721Receiver {
             // 验证 ETH 被正确转移（从所有者到池子）
             assertEq(owner.balance, ownerBalanceBefore - ethAmount, 
                 string(abi.encodePacked("Owner should lose ", ethAmount, " ETH")));
-            
-            // 验证池子存在
-            assertTrue(manager.hasPool(address(testNft)), "Pool should exist");
             
             console.log("Created pool with %d ETH", ethAmount / 1e18);
         }

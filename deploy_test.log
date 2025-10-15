@@ -1,0 +1,27 @@
+Compiling 1 files with Solc 0.8.28
+Solc 0.8.28 finished in 464.99ms
+Compiler run successful!
+Warning: Detected artifacts built from source files that no longer exist. Run `forge clean` to make sure builds are in sync with project files.
+ - /Users/lucifer/workspace/apacx/nft_dex/src/MultiPoolManagerLibrary.sol
+ - /Users/lucifer/workspace/apacx/nft_dex/src/MultiPoolManagerFactoryV2.sol
+ - /Users/lucifer/workspace/apacx/nft_dex/src/MultiPoolManagerV2.sol
+Script ran successfully.
+
+== Logs ==
+  Preminted 20 NFTs for collection 1
+  Pool 1 created at: 0x029c12ED88495dd1FFc685fe4AcCd5a0Bea3c14B
+  Preminted 20 NFTs for collection 2
+  Pool 2 created at: 0x6C2fe0632F3770497EE7707f6B16fB8FeD6da9b5
+  Preminted 20 NFTs for collection 3
+  Pool 3 created at: 0xfB86816D199E34340a5e6aE6cCE4b34871c59779
+  === Local Multi-Pool Deployment Summary ===
+  MultiPoolManager: 0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575
+  Pool Count: 3
+  Pool 1 - NFT: 0xCD8a1C3ba11CF5ECfa6267617243239504a98d90
+  Pool 1 - AMM: 0x029c12ED88495dd1FFc685fe4AcCd5a0Bea3c14B
+  Pool 2 - NFT: 0x82e01223d51Eb87e16A03E24687EDF0F294da6f1
+  Pool 2 - AMM: 0x6C2fe0632F3770497EE7707f6B16fB8FeD6da9b5
+  Pool 3 - NFT: 0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
+  Pool 3 - AMM: 0xfB86816D199E34340a5e6aE6cCE4b34871c59779
+Error: `MultiPoolManager` is above the contract size limit (26897 > 24576).
+Error: IO error: not a terminal

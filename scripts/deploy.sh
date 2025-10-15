@@ -54,7 +54,7 @@ case $choice in
         ;;
     2)
         echo "🚀 部署多池系统..."
-        forge script script/DeployMultiPoolSystem.s.sol:DeployMultiPoolSystem --rpc-url $RPC_URL --broadcast --verify
+        forge script script/DeployPairFactory.s.sol:DeployPairFactory --rpc-url $RPC_URL --broadcast --verify
         ;;
     3)
         echo "🚀 部署 NFT 合约..."

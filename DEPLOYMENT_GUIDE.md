@@ -49,10 +49,10 @@ forge script script/DeployAMMSystem.s.sol:DeployAMMSystem --rpc-url alchemy_sepo
 ### 3. 部署多池系统
 ```bash
 # 使用 Infura
-forge script script/DeployMultiPoolSystem.s.sol:DeployMultiPoolSystem --rpc-url sepolia --broadcast --verify
+forge script script/DeployPairFactory.s.sol:DeployPairFactory --rpc-url sepolia --broadcast --verify
 
 # 或使用 Alchemy
-forge script script/DeployMultiPoolSystem.s.sol:DeployMultiPoolSystem --rpc-url alchemy_sepolia --broadcast --verify
+forge script script/DeployPairFactory.s.sol:DeployPairFactory --rpc-url alchemy_sepolia --broadcast --verify
 ```
 
 ## 验证部署

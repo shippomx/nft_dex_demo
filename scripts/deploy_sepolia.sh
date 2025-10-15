@@ -53,7 +53,7 @@ case $choice in
         ;;
     2)
         echo "🚀 部署多池系统到 Sepolia..."
-        forge script script/DeployMultiPoolSystem.s.sol:DeployMultiPoolSystem --rpc-url sepolia --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
+        forge script script/DeployPairFactory.s.sol:DeployPairFactory --rpc-url sepolia --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY
         ;;
     3)
         echo "🚀 部署 NFT 合约到 Sepolia..."

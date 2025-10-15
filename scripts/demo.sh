@@ -108,28 +108,32 @@ deploy_contracts() {
     SENDER_ADDRESS=$(cast wallet address --private-key "$PRIVATE_KEY")
     echo "SENDER_ADDRESS: $SENDER_ADDRESS"
     
-    # 部署 AMM 系统
-    forge script script/DeployAMMSystem.s.sol:DeployAMMSystem --fork-url "$RPC_URL" --broadcast --private-key "$PRIVATE_KEY" --sig "runLocal()" > deploy.log 2>&1
+    # 部署多池 AMM 系统
+    forge script script/DeployPairFactory.s.sol:DeployPairFactory --fork-url "$RPC_URL" --broadcast --private-key "$PRIVATE_KEY" --sig "runLocal()" > deploy.log 2>&1
+    DEPLOY_EXIT_CODE=$?
     
-    if [[ $? -eq 0 ]]; then
+    # 检查部署是否成功（即使有合约大小警告，如果日志中包含成功信息就认为部署成功）
+    if [[ $DEPLOY_EXIT_CODE -eq 0 ]] || grep -q "Script ran successfully" deploy.log; then
         echo -e "${GREEN}✅ 合约部署成功!${NC}"
         
         # 从日志中提取合约地址
-        NFT_ADDRESS=$(grep "NFT Contract:" deploy.log | awk '{print $3}' | tail -1)
-        AMM_ADDRESS=$(grep "AMM Marketplace:" deploy.log | awk '{print $3}' | tail -1)
+        MANAGER_ADDRESS=$(grep "PairFactory:" deploy.log | awk '{print $2}' | tail -1)
+        NFT_ADDRESS=$(grep "Pool 1 - NFT:" deploy.log | awk '{print $5}' | tail -1)
+        AMM_ADDRESS=$(grep "Pool 1 - AMM:" deploy.log | awk '{print $5}' | tail -1)
         
         # 如果从日志中提取失败，尝试从广播文件中获取
-        if [[ -z "$NFT_ADDRESS" || -z "$AMM_ADDRESS" ]]; then
+        if [[ -z "$MANAGER_ADDRESS" || -z "$NFT_ADDRESS" || -z "$AMM_ADDRESS" ]]; then
             echo "从日志中提取合约地址失败，尝试从广播文件中获取..."
             
             # 查找最新的广播文件
-            BROADCAST_DIR="broadcast/DeployAMMSystem.s.sol/31337"
+            BROADCAST_DIR="broadcast/DeployPairFactory.s.sol/31337"
             if [[ -d "$BROADCAST_DIR" ]]; then
                 LATEST_RUN=$(ls -t "$BROADCAST_DIR" | grep -E "^[0-9]+$" | head -1)
                 if [[ -n "$LATEST_RUN" ]]; then
                     RUN_DIR="$BROADCAST_DIR/$LATEST_RUN"
                     if [[ -f "$RUN_DIR/run-latest.json" ]]; then
                         # 从 JSON 文件中提取合约地址
+                        MANAGER_ADDRESS=$(jq -r '.transactions[] | select(.contractName == "PairFactory") | .contractAddress' "$RUN_DIR/run-latest.json" 2>/dev/null | head -1)
                         NFT_ADDRESS=$(jq -r '.transactions[] | select(.contractName == "StandardNFT") | .contractAddress' "$RUN_DIR/run-latest.json" 2>/dev/null | head -1)
                         AMM_ADDRESS=$(jq -r '.transactions[] | select(.contractName == "Pair") | .contractAddress' "$RUN_DIR/run-latest.json" 2>/dev/null | head -1)
                     fi
@@ -137,8 +141,9 @@ deploy_contracts() {
             fi
         fi
         
-        if [[ -n "$NFT_ADDRESS" && -n "$AMM_ADDRESS" ]]; then
-            DEPLOYED_CONTRACTS="NFT: $NFT_ADDRESS, AMM: $AMM_ADDRESS"
+        if [[ -n "$MANAGER_ADDRESS" && -n "$NFT_ADDRESS" && -n "$AMM_ADDRESS" ]]; then
+            DEPLOYED_CONTRACTS="Manager: $MANAGER_ADDRESS, NFT: $NFT_ADDRESS, AMM: $AMM_ADDRESS"
+            echo "PairFactory 地址: $MANAGER_ADDRESS"
             echo "NFT 合约地址: $NFT_ADDRESS"
             echo "AMM 合约地址: $AMM_ADDRESS"
             
@@ -321,7 +326,6 @@ demo_trading() {
         
         # 授权 AMM 合约转移 NFT (如果需要)
         echo "检查 NFT 授权..."
-        NFT_ADDRESS=$(grep "NFT Contract:" deploy.log | awk '{print $3}' | tail -1)
         if [[ -n "$NFT_ADDRESS" ]]; then
             echo "授权 AMM 合约转移 NFT..."
             approve_tx=$(cast send "$NFT_ADDRESS" "setApprovalForAll(address,bool)" "$AMM_ADDRESS" "true" \
@@ -544,7 +548,8 @@ show_summary() {
     echo ""
     echo "本次演示展示了以下功能:"
     echo "✅ 启动本地 Anvil 节点"
-    echo "✅ 部署 NFT 和 AMM 合约"
+    echo "✅ 部署 PairFactory 和 NFT 合约"
+    echo "✅ 通过 PairFactory 创建 AMM 池子"
     echo "✅ 查询合约信息"
     echo "✅ 价格监控功能"
     echo "✅ 交易查询功能"

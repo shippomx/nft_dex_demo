@@ -4,14 +4,14 @@ pragma solidity ^0.8.20;
 import {Script, console} from "forge-std/Script.sol";
 import {StandardNFT} from "../src/StandardNFT.sol";
 import {Pair} from "../src/Pair.sol";
-import {MultiPoolManager} from "../src/MultiPoolManager.sol";
+import {PairFactory} from "../src/PairFactory.sol";
 
 /**
- * @title DeployMultiPoolSystem
+ * @title DeployPairFactory
  * @dev 部署多池 NFT 交易系统
  */
-contract DeployMultiPoolSystem is Script {
-    MultiPoolManager public manager;
+contract DeployPairFactory is Script {
+    PairFactory public manager;
     StandardNFT[] public nftContracts;
     Pair[] public pools;
     
@@ -44,8 +44,8 @@ contract DeployMultiPoolSystem is Script {
         _initializeNFTConfigs();
         
         // 部署池子管理器
-        manager = new MultiPoolManager();
-        console.log("MultiPoolManager deployed at:", address(manager));
+        manager = new PairFactory();
+        console.log("PairFactory deployed at:", address(manager));
         
         // 部署 NFT 合约
         for (uint256 i = 0; i < POOL_COUNT; i++) {
@@ -90,7 +90,7 @@ contract DeployMultiPoolSystem is Script {
         _initializeNFTConfigs();
         
         // 部署池子管理器
-        manager = new MultiPoolManager();
+        manager = new PairFactory();
         
         // 部署 NFT 合约
         for (uint256 i = 0; i < POOL_COUNT; i++) {
@@ -114,11 +114,11 @@ contract DeployMultiPoolSystem is Script {
         }
         
         console.log("=== Local Multi-Pool Deployment Summary ===");
-        console.log("MultiPoolManager:", address(manager));
+        console.log("PairFactory:", address(manager));
         console.log("Pool Count:", POOL_COUNT);
         for (uint256 i = 0; i < POOL_COUNT; i++) {
             console.log("Pool %d - NFT:", i + 1, address(nftContracts[i]));
-            console.log("Pool %d - AMM:", i + 1, manager.getPool(address(nftContracts[i])));
+            console.log("Pool %d - AMM:", i + 1, address(pools[i]));
         }
     }
     
@@ -161,7 +161,7 @@ contract DeployMultiPoolSystem is Script {
         StandardNFT nft = nftContracts[index];
         
         // 预铸造 NFT 到部署者地址
-        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+        address deployer = vm.addr(vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)));
         nft.premint(deployer, PREMINT_COUNT);
         console.log("Preminted %d NFTs for collection %d", PREMINT_COUNT, index + 1);
         
@@ -177,13 +177,20 @@ contract DeployMultiPoolSystem is Script {
         }
         
         // 创建池子
-        manager.createPool{value: INITIAL_ETH_PER_POOL}(
-            address(nft),
-            tokenIds
-        );
+        address poolAddress = manager.createPool(address(nft));
         
-        address poolAddress = manager.getPool(address(nft));
-        pools.push(Pair(payable(poolAddress)));
+        // 获取创建的池子合约
+        Pair pool = Pair(payable(poolAddress));
+        
+        // 授权池子转移 NFT
+        for (uint256 i = 1; i <= PREMINT_COUNT; i++) {
+            nft.approve(address(pool), i);
+        }
+        
+        // 添加初始流动性
+        pool.addInitialLiquidity{value: INITIAL_ETH_PER_POOL}(tokenIds);
+        
+        pools.push(pool);
         
         console.log("Pool %d created at:", index + 1, poolAddress);
     }
@@ -195,7 +202,8 @@ contract DeployMultiPoolSystem is Script {
         StandardNFT nft = nftContracts[index];
         
         // 使用部署者私钥进行预铸造
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
+        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        vm.startBroadcast(deployerPrivateKey);
         
         // 预铸造 NFT 到部署者地址
         nft.premint(deployer, PREMINT_COUNT);
@@ -207,21 +215,23 @@ contract DeployMultiPoolSystem is Script {
             tokenIds[i - 1] = i;
         }
         
-        // 授权池子管理器
+        // 创建池子
+        address poolAddress = manager.createPool(address(nft));
+        
+        // 获取创建的池子合约
+        Pair pool = Pair(payable(poolAddress));
+        
+        // 授权池子转移 NFT
         for (uint256 i = 1; i <= PREMINT_COUNT; i++) {
-            nft.approve(address(manager), i);
+            nft.approve(address(pool), i);
         }
         
-        // 创建池子
-        manager.createPool{value: INITIAL_ETH_PER_POOL}(
-            address(nft),
-            tokenIds
-        );
+        // 添加初始流动性
+        pool.addInitialLiquidity{value: INITIAL_ETH_PER_POOL}(tokenIds);
         
         vm.stopBroadcast();
         
-        address poolAddress = manager.getPool(address(nft));
-        pools.push(Pair(payable(poolAddress)));
+        pools.push(pool);
         
         console.log("Pool %d created at:", index + 1, poolAddress);
     }
@@ -231,7 +241,7 @@ contract DeployMultiPoolSystem is Script {
      */
     function _printDeploymentSummary() internal view {
         console.log("=== Multi-Pool Deployment Summary ===");
-        console.log("MultiPoolManager:", address(manager));
+        console.log("PairFactory:", address(manager));
         console.log("Pool Count:", POOL_COUNT);
         console.log("Initial ETH per Pool:", INITIAL_ETH_PER_POOL);
         console.log("NFTs per Pool:", PREMINT_COUNT);
@@ -241,8 +251,8 @@ contract DeployMultiPoolSystem is Script {
             console.log("NFT Contract:", address(nftContracts[i]));
             console.log("AMM Pool:", address(pools[i]));
             
-            (uint256 ethReserve, uint256 nftReserve) = manager.getPoolReserves(address(nftContracts[i]));
-            uint256 currentPrice = manager.getCurrentPrice(address(nftContracts[i]));
+            (uint256 ethReserve, uint256 nftReserve) = pools[i].getPoolReserves();
+            uint256 currentPrice = pools[i].getCurrentPrice();
             
             console.log("ETH Reserve:", ethReserve);
             console.log("NFT Reserve:", nftReserve);
@@ -262,7 +272,7 @@ contract DeployMultiPoolSystem is Script {
             require(address(nftContracts[i]) != address(0), "NFT contract not deployed");
             require(address(pools[i]) != address(0), "Pool not deployed");
             
-            (uint256 ethReserve, uint256 nftReserve) = manager.getPoolReserves(address(nftContracts[i]));
+            (uint256 ethReserve, uint256 nftReserve) = pools[i].getPoolReserves();
             require(ethReserve == INITIAL_ETH_PER_POOL, "Incorrect ETH reserve");
             require(nftReserve == PREMINT_COUNT, "Incorrect NFT reserve");
         }

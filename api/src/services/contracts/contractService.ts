@@ -74,14 +74,22 @@ export class ContractService {
       });
 
       // 从 Foundry 编译输出加载合约字节码
+      logger.info('Loading contract bytecode...');
       const contractInfo = await bytecodeLoader.loadContract('StandardNFT');
+      logger.info('Contract bytecode loaded:', {
+        contractName: contractInfo.contractName,
+        bytecodeLength: contractInfo.bytecode.length,
+        abiLength: contractInfo.abi.length
+      });
       
+      logger.info('Creating contract factory...');
       const factory = new ethers.ContractFactory(
         contractInfo.abi,
         contractInfo.bytecode,
         web3Service.getSigner()
       );
 
+      logger.info('Deploying contract...');
       const contract = await factory.deploy(
         name,
         symbol,
@@ -91,6 +99,7 @@ export class ContractService {
         ethers.parseEther(mintPrice)
       );
 
+      logger.info('Waiting for deployment...');
       await contract.waitForDeployment();
       const address = await contract.getAddress();
 
@@ -99,7 +108,11 @@ export class ContractService {
 
       return address;
     } catch (error) {
-      logger.error('Failed to deploy NFT contract:', error);
+      logger.error('Failed to deploy NFT contract:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
       throw new ContractError(`Failed to deploy NFT contract: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

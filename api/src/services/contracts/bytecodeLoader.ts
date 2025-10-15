@@ -8,7 +8,11 @@ import { ContractError } from '../../utils/errors';
  */
 export interface FoundryArtifact {
   abi: any[];
-  bytecode: string;
+  bytecode: {
+    object: string;
+    linkReferences: any;
+    sourceMap: string;
+  };
   deployedBytecode: string;
   linkReferences: any;
   deployedLinkReferences: any;
@@ -104,7 +108,7 @@ export class BytecodeLoader {
       
       const contractInfo: ContractInfo = {
         abi: artifact.abi,
-        bytecode: artifact.bytecode || artifact.evm?.bytecode?.object || '',
+        bytecode: artifact.bytecode?.object || artifact.evm?.bytecode?.object || '',
         contractName: artifact.contractName || contractName,
         sourceName: artifact.sourceName || 'unknown',
       };
@@ -115,7 +119,7 @@ export class BytecodeLoader {
       logger.info('Contract loaded successfully', {
         contractName: artifact.contractName,
         sourceName: artifact.sourceName,
-        bytecodeLength: artifact.bytecode.length,
+        bytecodeLength: contractInfo.bytecode.length,
         abiLength: artifact.abi.length,
       });
 

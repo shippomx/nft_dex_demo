@@ -13,6 +13,9 @@ import { poolRoutes } from './routes/pool';
 import { tradeRoutes } from './routes/trade';
 import { web3Routes } from './routes/web3';
 
+// 导入 Web3 服务
+import { web3Service } from './services/web3Service';
+
 // 创建 Fastify 实例
 const fastify = Fastify({
   logger: {
@@ -153,6 +156,31 @@ fastify.setErrorHandler(errorHandler);
 // 启动服务器
 async function start() {
   try {
+    // 检查 RPC 端点连接
+    logger.info('='.repeat(60));
+    logger.info('🔍 Performing startup checks...');
+    logger.info('='.repeat(60));
+    
+    const rpcConnected = await web3Service.checkRpcConnection();
+    
+    if (!rpcConnected) {
+      logger.error('='.repeat(60));
+      logger.error('❌ FATAL ERROR: Cannot connect to blockchain node!');
+      logger.error('❌ RPC URL: ' + config.blockchain.rpcUrl);
+      logger.error('❌ Server startup aborted.');
+      logger.error('❌ Please check:');
+      logger.error('❌   1. Is the blockchain node running?');
+      logger.error('❌      Command: anvil');
+      logger.error('❌   2. Is the RPC_URL correct in your .env file?');
+      logger.error('❌      Current: ' + config.blockchain.rpcUrl);
+      logger.error('❌   3. Is there a firewall blocking the connection?');
+      logger.error('='.repeat(60));
+      process.exit(1);
+    }
+
+    logger.info('');
+    logger.info('Starting HTTP server...');
+    
     // 注册插件
     await registerPlugins();
 
@@ -165,13 +193,26 @@ async function start() {
       host: config.server.host,
     });
 
-    logger.info('🚀 NFT DEX API Server started successfully!', {
-      port: config.server.port,
-      host: config.server.host,
-      environment: config.server.nodeEnv,
-      apiPrefix: config.api.prefix,
-      documentation: `http://${config.server.host}:${config.server.port}/docs`,
-    });
+    logger.info('');
+    logger.info('='.repeat(60));
+    logger.info('🚀 NFT DEX API Server started successfully!');
+    logger.info('='.repeat(60));
+    logger.info('📍 Server Information:');
+    logger.info(`   - Port: ${config.server.port}`);
+    logger.info(`   - Host: ${config.server.host}`);
+    logger.info(`   - Environment: ${config.server.nodeEnv}`);
+    logger.info(`   - API Prefix: ${config.api.prefix}`);
+    logger.info('');
+    logger.info('📚 Available Endpoints:');
+    logger.info(`   - API Documentation: http://${config.server.host === '0.0.0.0' ? 'localhost' : config.server.host}:${config.server.port}/docs`);
+    logger.info(`   - Health Check: http://${config.server.host === '0.0.0.0' ? 'localhost' : config.server.host}:${config.server.port}/health`);
+    logger.info(`   - API Root: http://${config.server.host === '0.0.0.0' ? 'localhost' : config.server.host}:${config.server.port}${config.api.prefix}`);
+    logger.info('');
+    logger.info('⛓️  Blockchain Configuration:');
+    logger.info(`   - RPC URL: ${config.blockchain.rpcUrl}`);
+    logger.info(`   - Chain ID: ${config.blockchain.chainId}`);
+    logger.info(`   - RPC Status: ✅ Connected`);
+    logger.info('='.repeat(60));
 
     // 优雅关闭处理
     process.on('SIGINT', async () => {

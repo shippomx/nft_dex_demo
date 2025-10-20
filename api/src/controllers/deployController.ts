@@ -45,7 +45,7 @@ export class DeployController {
         mintPrice,
       });
 
-      const contractAddress = await contractService.deployNFTContract(
+      const { address: contractAddress, txHash } = await contractService.deployNFTContract(
         name,
         symbol,
         baseURI,
@@ -54,19 +54,31 @@ export class DeployController {
         mintPrice
       );
 
-      logger.info('NFT contract deployed successfully:', { contractAddress });
+      logger.info('NFT contract deployed successfully:', { contractAddress, txHash });
+
+      // 等待 1 秒让区块链更新 nonce
+      logger.info('Waiting for nonce to update...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 自动铸造 10 个 NFT 给部署者
+      logger.info('Auto-minting 10 NFTs to deployer...');
+      const mintResult = await contractService.mintNFTs(contractAddress, 10);
+      logger.info('NFTs minted successfully:', mintResult);
 
       return reply.send(successResponse({
         contractAddress,
+        txHash,
         name,
         symbol,
         baseURI,
         maxSupply,
         maxMintPerAddress,
         mintPrice,
-        mintedNFTs: 10, // 自动铸造的 NFT 数量
+        mintedNFTs: mintResult.tokenIds.length,
+        mintedTokenIds: mintResult.tokenIds,
+        mintTxHashes: mintResult.txHashes,
         deployerAddress: web3Service.getWalletAddress(),
-      }, 'NFT contract deployed successfully with 10 NFTs minted to deployer'));
+      }, `NFT contract deployed successfully with ${mintResult.tokenIds.length} NFTs minted to deployer`));
     } catch (error) {
       logger.error('Failed to deploy NFT contract:', error);
       throw error;
@@ -82,12 +94,13 @@ export class DeployController {
 
       logger.info('Deploying Pair contract:', { nftContractAddress });
 
-      const contractAddress = await contractService.deployPairContract(nftContractAddress);
+      const { address: contractAddress, txHash } = await contractService.deployPairContract(nftContractAddress);
 
-      logger.info('Pair contract deployed successfully:', { contractAddress });
+      logger.info('Pair contract deployed successfully:', { contractAddress, txHash });
 
       return reply.send(successResponse({
         contractAddress,
+        txHash,
         nftContractAddress,
       }, 'Pair contract deployed successfully'));
     } catch (error) {
@@ -103,12 +116,13 @@ export class DeployController {
     try {
       logger.info('Deploying PairFactory contract');
 
-      const contractAddress = await contractService.deployPairFactory();
+      const { address: contractAddress, txHash } = await contractService.deployPairFactory();
 
-      logger.info('PairFactory contract deployed successfully:', { contractAddress });
+      logger.info('PairFactory contract deployed successfully:', { contractAddress, txHash });
 
       return reply.send(successResponse({
         contractAddress,
+        txHash,
       }, 'PairFactory contract deployed successfully'));
     } catch (error) {
       logger.error('Failed to deploy PairFactory contract:', error);

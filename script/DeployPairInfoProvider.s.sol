@@ -160,11 +160,11 @@ contract DeployPairInfoProvider is Script {
         // 测试获取池子信息
         PairInfoProvider.PoolInfo memory poolInfo = infoProvider.getPoolInfo(address(pair));
         console.log("Pool Info:");
-        console.log("  ETH Reserve:", poolInfo.ethReserve);
-        console.log("  NFT Reserve:", poolInfo.nftReserve);
+        console.log("  Total Liquidity:", poolInfo.totalLiquidity);
+        console.log("  NFT Reserve:", poolInfo.totalNFTs);
         console.log("  Current Price:", poolInfo.currentPrice);
-        console.log("  Trading Fee:", poolInfo.tradingFee);
-        console.log("  Accumulated Fees:", poolInfo.accumulatedFees);
+        console.log("  NFT Contract:", poolInfo.nftContract);
+        console.log("  Is Active:", poolInfo.isActive);
         
         // 测试获取池子信息
         PairInfoProvider.PoolInfo memory poolInfo2 = infoProvider.getPoolInfo(address(pair));

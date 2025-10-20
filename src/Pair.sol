@@ -113,9 +113,9 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         emit LiquidityAdded(msg.value, nftTokenIds.length);
         emit LPTokensMinted(from, lpAmount);
         
-        // 优化事件发射 - 减少存储读取
-        uint256 currentBalance = address(this).balance;
-        emit PriceUpdated(currentBalance / nftReserve, currentBalance, nftReserve);
+        // 优化事件发射 - 减少存储读取，使用净余额
+        uint256 netBalance = address(this).balance - accumulatedFees;
+        emit PriceUpdated(netBalance / nftReserve, netBalance, nftReserve);
     }
     
     /**
@@ -132,10 +132,10 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         require(lpTokenAmount > 0, "Amount must be greater than 0");
         require(lpToken.balanceOf(msg.sender) >= lpTokenAmount, "Insufficient LP tokens");
         
-        // 计算要移除的 ETH 和 NFT 数量
+        // 计算要移除的 ETH 和 NFT 数量，使用净余额（不包括累积费用）
         uint256 totalLPTokens = lpToken.totalSupply();
-        uint256 currentBalance = address(this).balance;
-        uint256 ethToRemove = (currentBalance * lpTokenAmount) / totalLPTokens;
+        uint256 netBalance = address(this).balance - accumulatedFees;
+        uint256 ethToRemove = (netBalance * lpTokenAmount) / totalLPTokens;
         uint256 nftToRemove = (nftReserve * lpTokenAmount) / totalLPTokens;
         
         // 滑点保护
@@ -159,12 +159,12 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         
         emit LPTokensBurned(msg.sender, lpTokenAmount);
         
-        // 只有在还有 NFT 储备时才计算价格
-        uint256 newBalance = address(this).balance;
+        // 只有在还有 NFT 储备时才计算价格，重新计算转账后的净余额
+        uint256 finalBalance = address(this).balance - accumulatedFees;
         if (nftReserve > 0) {
-            emit PriceUpdated(newBalance / nftReserve, newBalance, nftReserve);
+            emit PriceUpdated(finalBalance / nftReserve, finalBalance, nftReserve);
         } else {
-            emit PriceUpdated(0, newBalance, nftReserve);
+            emit PriceUpdated(0, finalBalance, nftReserve);
         }
     }
     
@@ -192,8 +192,8 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
             revert PoolEmpty();
         }
         
-        // 计算价格时要排除用户刚刚发送的 ETH
-        uint256 poolBalance = address(this).balance - msg.value;
+        // 计算价格时要排除用户刚刚发送的 ETH，并减去累积费用
+        uint256 poolBalance = address(this).balance - msg.value - accumulatedFees;
         uint256 currentPrice = poolBalance / nftReserve; // nftReserve 已经检查过不为0
         uint256 fee = (currentPrice * TRADING_FEE) / FEE_DENOMINATOR;
         uint256 totalCost = currentPrice + fee;
@@ -237,12 +237,12 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         
         emit NFTBought(buyer, tokenId, currentPrice, fee);
         
-        // 优化事件发射 - 减少函数调用
-        uint256 newBalance = address(this).balance;
+        // 优化事件发射 - 减少函数调用，使用净余额
+        uint256 netBalance = address(this).balance - accumulatedFees;
         if (nftReserve > 0) {
-            emit PriceUpdated(newBalance / nftReserve, newBalance, nftReserve);
+            emit PriceUpdated(netBalance / nftReserve, netBalance, nftReserve);
         } else {
-            emit PriceUpdated(0, newBalance, nftReserve);
+            emit PriceUpdated(0, netBalance, nftReserve);
         }
     }
     
@@ -313,9 +313,9 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         
         emit NFTSold(seller, tokenId, sellPrice, fee);
         
-        // 优化事件发射 - 减少函数调用
-        uint256 newBalance = address(this).balance;
-        emit PriceUpdated(newBalance / nftReserve, newBalance, nftReserve);
+        // 优化事件发射 - 减少函数调用，使用净余额
+        uint256 netBalance = address(this).balance - accumulatedFees;
+        emit PriceUpdated(netBalance / nftReserve, netBalance, nftReserve);
     }
     
     /**
@@ -326,7 +326,9 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
         if (nftReserve == 0) {
             return 0;
         }
-        return address(this).balance / nftReserve;
+        // 使用净储备（余额减去累积费用）来计算价格
+        uint256 netBalance = address(this).balance - accumulatedFees;
+        return netBalance / nftReserve;
     }
     
     /**
@@ -344,11 +346,13 @@ contract Pair is IERC721Receiver, ReentrancyGuard, Ownable, Pausable {
     
     /**
      * @dev 获取池子储备量
-     * @return ethReserve ETH 储备量
+     * @return ethReserve ETH 储备量（不包括累积费用）
      * @return nftReserveCount NFT 储备量
      */
     function getPoolReserves() external view returns (uint256 ethReserve, uint256 nftReserveCount) {
-        return (address(this).balance, nftReserve);
+        // 返回净储备（余额减去累积费用）
+        uint256 netBalance = address(this).balance - accumulatedFees;
+        return (netBalance, nftReserve);
     }
     
     /**

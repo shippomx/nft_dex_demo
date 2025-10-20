@@ -64,7 +64,7 @@ export class ContractService {
     maxSupply: number,
     maxMintPerAddress: number,
     mintPrice: string
-  ): Promise<string> {
+  ): Promise<{ address: string; txHash: string }> {
     try {
       logger.info('Deploying NFT contract:', {
         name,
@@ -91,27 +91,38 @@ export class ContractService {
         web3Service.getSigner()
       );
 
-      logger.info('Deploying contract...');
+      // 获取当前 nonce，确保从区块链获取最新值
+      const nonce = await web3Service.getNextNonce();
+      logger.info('Deploying contract with nonce:', { nonce });
+
       const contract = await factory.deploy(
         name,
         symbol,
         baseURI,
         maxSupply,
         maxMintPerAddress,
-        ethers.parseEther(mintPrice) // 将 ETH 转换为 Wei
+        ethers.parseEther(mintPrice), // 将 ETH 转换为 Wei
+        { nonce } // 显式指定 nonce
       );
+
+      // 获取部署交易哈希
+      const txHash = contract.deploymentTransaction()?.hash || '';
 
       logger.info('Waiting for deployment...');
       await contract.waitForDeployment();
       const address = await contract.getAddress();
 
+      // 等待部署交易上链
+      logger.info('Waiting for deployment transaction to be mined...');
+      await web3Service.waitForTransaction(txHash, 1);
+
       this.addresses.nftContract = address;
-      logger.info('NFT contract deployed:', { address });
+      logger.info('NFT contract deployed and confirmed:', { address, txHash });
 
       // 注意：NFT 铸造将在部署后通过单独的 API 调用进行
       logger.info('NFT contract deployed successfully. Use /api/v1/trade/mint to mint NFTs.');
 
-      return address;
+      return { address, txHash };
     } catch (error) {
       logger.error('Failed to deploy NFT contract:', {
         error: error instanceof Error ? error.message : String(error),
@@ -129,7 +140,7 @@ export class ContractService {
   /**
    * 部署 Pair 合约
    */
-  async deployPairContract(nftContractAddress: string): Promise<string> {
+  async deployPairContract(nftContractAddress: string): Promise<{ address: string; txHash: string }> {
     try {
       logger.info('Deploying Pair contract:', { nftContractAddress });
 
@@ -142,14 +153,25 @@ export class ContractService {
         web3Service.getSigner()
       );
 
-      const contract = await factory.deploy(nftContractAddress);
+      // 获取当前 nonce
+      const nonce = await web3Service.getNextNonce();
+      logger.info('Deploying Pair contract with nonce:', { nonce });
+
+      const contract = await factory.deploy(nftContractAddress, { nonce });
+      
+      // 获取部署交易哈希
+      const txHash = contract.deploymentTransaction()?.hash || '';
+      
       await contract.waitForDeployment();
       const address = await contract.getAddress();
 
-      this.addresses.pairContract = address;
-      logger.info('Pair contract deployed:', { address });
+      // 等待部署交易上链
+      await web3Service.waitForTransaction(txHash, 1);
 
-      return address;
+      this.addresses.pairContract = address;
+      logger.info('Pair contract deployed and confirmed:', { address, txHash });
+
+      return { address, txHash };
     } catch (error) {
       logger.error('Failed to deploy Pair contract:', error);
       throw new ContractError(`Failed to deploy Pair contract: ${error instanceof Error ? error.message : String(error)}`);
@@ -402,7 +424,7 @@ export class ContractService {
   /**
    * 部署 PairFactory 合约
    */
-  async deployPairFactory(): Promise<string> {
+  async deployPairFactory(): Promise<{ address: string; txHash: string }> {
     try {
       logger.info('Deploying PairFactory contract');
 
@@ -415,14 +437,25 @@ export class ContractService {
         web3Service.getSigner()
       );
 
-      const contract = await factory.deploy();
+      // 获取当前 nonce
+      const nonce = await web3Service.getNextNonce();
+      logger.info('Deploying PairFactory contract with nonce:', { nonce });
+
+      const contract = await factory.deploy({ nonce });
+      
+      // 获取部署交易哈希
+      const txHash = contract.deploymentTransaction()?.hash || '';
+      
       await contract.waitForDeployment();
       const address = await contract.getAddress();
 
-      this.addresses.pairFactory = address;
-      logger.info('PairFactory contract deployed:', { address });
+      // 等待部署交易上链
+      await web3Service.waitForTransaction(txHash, 1);
 
-      return address;
+      this.addresses.pairFactory = address;
+      logger.info('PairFactory contract deployed and confirmed:', { address, txHash });
+
+      return { address, txHash };
     } catch (error) {
       logger.error('Failed to deploy PairFactory contract:', error);
       throw new ContractError(`Failed to deploy PairFactory contract: ${error instanceof Error ? error.message : String(error)}`);
@@ -475,14 +508,35 @@ export class ContractService {
           );
           logger.info('Pool address retrieved from contract:', { poolAddress });
         } catch (e) {
-          logger.warn('Failed to get pool address from contract:', e);
+          logger.error('Failed to get pool address from contract:', e);
+          // 即使调用失败也继续，因为下面会再次尝试
+        }
+      }
+
+      // 最后一次尝试：直接查询（不管之前是否成功）
+      if (!poolAddress || poolAddress === '0x0000000000000000000000000000000000000000') {
+        try {
+          const finalPoolAddress = await web3Service.callContract(
+            this.addresses.pairFactory,
+            PairFactory_ABI as any,
+            'getPoolAddress',
+            [nftContractAddress]
+          );
+          if (finalPoolAddress && finalPoolAddress !== '0x0000000000000000000000000000000000000000') {
+            poolAddress = finalPoolAddress;
+            logger.info('Pool address retrieved on final attempt:', { poolAddress });
+          }
+        } catch (e) {
+          logger.error('Final attempt to get pool address failed:', e);
         }
       }
 
       // 存储池子地址
-      if (poolAddress) {
+      if (poolAddress && poolAddress !== '0x0000000000000000000000000000000000000000') {
         this.addresses.pairContract = poolAddress;
         logger.info('Pool address stored:', { poolAddress });
+      } else {
+        logger.warn('Pool address not available or is zero address');
       }
 
       return {
@@ -521,16 +575,29 @@ export class ContractService {
   async batchApproveNFT(nftContractAddress: string, poolAddress: string, tokenIds: number[]): Promise<string[]> {
     const txHashes: string[] = [];
     
-    for (const tokenId of tokenIds) {
+    logger.info('Starting batch approval for NFTs:', { tokenIds, count: tokenIds.length });
+    
+    for (let i = 0; i < tokenIds.length; i++) {
+      const tokenId = tokenIds[i];
       try {
+        logger.info(`Approving NFT ${i + 1}/${tokenIds.length}:`, { tokenId });
+        
         const txHash = await this.approveNFT(nftContractAddress, poolAddress, tokenId);
         txHashes.push(txHash);
+        
+        logger.info(`NFT ${i + 1}/${tokenIds.length} approved successfully:`, { tokenId, txHash });
+        
+        // 在下一个授权前等待短暂时间，让区块链更新 nonce
+        if (i < tokenIds.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // 等待 0.5 秒
+        }
       } catch (error) {
         logger.error(`Failed to approve NFT ${tokenId}:`, error);
         throw new ContractError(`Failed to approve NFT ${tokenId}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     
+    logger.info('Batch approval completed:', { totalApproved: txHashes.length });
     return txHashes;
   }
 
@@ -623,9 +690,14 @@ export class ContractService {
         uris.push(`https://api.test.com/metadata/${i}`);
       }
 
+      // 获取当前 nonce
+      const nonce = await web3Service.getNextNonce();
+      logger.info('Batch minting with nonce:', { nonce });
+
       // 使用批量铸造功能
       const batchMintTx = await (contract as any).batchMint(mintRecipient, uris, {
-        value: totalCost
+        value: totalCost,
+        nonce
       });
 
       logger.info('Batch mint transaction sent:', {
@@ -639,9 +711,12 @@ export class ContractService {
       const receipt = await batchMintTx.wait();
       logger.info('Batch mint transaction confirmed:', {
         txHash: batchMintTx.hash,
-        blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed.toString()
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString()
       });
+
+      // 额外等待确保 nonce 更新
+      await web3Service.waitForTransaction(batchMintTx.hash, 1);
 
       // 从 BatchMinted 事件中获取 tokenIds
       let tokenIds = [];

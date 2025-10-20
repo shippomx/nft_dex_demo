@@ -25,6 +25,7 @@ const deployNFTSchema = {
           type: 'object',
           properties: {
             contractAddress: { type: 'string' },
+            txHash: { type: 'string' },
             name: { type: 'string' },
             symbol: { type: 'string' },
             baseURI: { type: 'string' },
@@ -56,6 +57,7 @@ const deployPairSchema = {
           type: 'object',
           properties: {
             contractAddress: { type: 'string' },
+            txHash: { type: 'string' },
             nftContractAddress: { type: 'string' },
           },
         },
@@ -79,6 +81,7 @@ const deployPairFactorySchema = {
           type: 'object',
           properties: {
             contractAddress: { type: 'string' },
+            txHash: { type: 'string' },
           },
         },
       },

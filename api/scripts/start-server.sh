@@ -38,19 +38,31 @@ if [ ! -d "dist" ]; then
     npm run build
 fi
 
-# 设置环境变量
-export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-export RPC_URL="http://localhost:8545"
-export PORT="3000"
-export HOST="0.0.0.0"
-export NODE_ENV="development"
+# 检查 .env 文件
+if [ ! -f ".env" ]; then
+    echo -e "${YELLOW}警告: 未找到 .env 文件${NC}"
+    echo "从 env.example 创建 .env 文件..."
+    cp env.example .env
+    echo -e "${GREEN}.env 文件已创建，请根据需要修改配置${NC}"
+fi
 
-echo -e "${GREEN}环境变量已设置${NC}"
-echo "  PRIVATE_KEY: ${PRIVATE_KEY:0:10}..."
-echo "  RPC_URL: $RPC_URL"
-echo "  PORT: $PORT"
-echo "  HOST: $HOST"
+# 加载环境变量（如果需要覆盖，可以在这里设置）
+# 注意：以下环境变量将从 .env 文件自动加载
+# 如果需要临时覆盖，可以取消注释下面的行
+
+# export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+# export RPC_URL="http://localhost:8545"
+# export PORT="3000"
+# export HOST="0.0.0.0"
+# export NODE_ENV="development"
+
+echo -e "${GREEN}环境配置${NC}"
+echo "  配置文件: .env"
+echo "  请确保 .env 文件中的配置正确"
 echo ""
+
+# 读取端口配置（用于脚本中的检查）
+PORT=${PORT:-3000}
 
 # 检查端口是否被占用
 if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -61,9 +73,8 @@ if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
 fi
 
 echo -e "${BLUE}启动服务器...${NC}"
-echo "服务器将在 http://localhost:$PORT 启动"
-echo "API 文档: http://localhost:$PORT/docs"
-echo "健康检查: http://localhost:$PORT/health"
+echo "服务器配置从 .env 文件读取"
+echo "预期端口: $PORT (如果 .env 中有不同配置，将使用 .env 中的值)"
 echo ""
 echo -e "${YELLOW}按 Ctrl+C 停止服务器${NC}"
 echo ""

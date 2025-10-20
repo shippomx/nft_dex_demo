@@ -7,7 +7,10 @@ export class Web3Service {
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
   private signer: ethers.Wallet;
+  // nonce 仅用于日志记录和调试，不用于交易
   private nonce: number = 0;
+  // nonce 锁，防止并发获取导致冲突
+  private nonceLock: Promise<void> = Promise.resolve();
 
   constructor() {
     try {
@@ -26,6 +29,48 @@ export class Web3Service {
     } catch (error) {
       logger.error('Failed to initialize Web3 service:', error);
       throw new BlockchainError('Failed to initialize Web3 connection');
+    }
+  }
+
+  /**
+   * 检查 RPC 端点连接状态
+   * @returns 连接是否正常
+   */
+  async checkRpcConnection(): Promise<boolean> {
+    try {
+      logger.info('Checking RPC endpoint connection...', {
+        rpcUrl: config.blockchain.rpcUrl,
+      });
+
+      // 尝试获取网络信息
+      const network = await this.provider.getNetwork();
+      
+      // 尝试获取最新区块号
+      const blockNumber = await this.provider.getBlockNumber();
+      
+      logger.info('✅ RPC endpoint connection successful', {
+        rpcUrl: config.blockchain.rpcUrl,
+        chainId: network.chainId.toString(),
+        expectedChainId: config.blockchain.chainId,
+        latestBlock: blockNumber,
+      });
+
+      // 检查链 ID 是否匹配
+      if (Number(network.chainId) !== config.blockchain.chainId) {
+        logger.warn('⚠️  Chain ID mismatch!', {
+          expected: config.blockchain.chainId,
+          actual: Number(network.chainId),
+          rpcUrl: config.blockchain.rpcUrl,
+        });
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('❌ RPC endpoint connection failed!', {
+        rpcUrl: config.blockchain.rpcUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
     }
   }
 
@@ -216,18 +261,58 @@ export class Web3Service {
   }
 
   /**
-   * 获取下一个 nonce
+   * 获取下一个 nonce（带锁机制防止并发冲突）
+   * 每次都从区块链查询最新的 nonce，不依赖缓存
    */
   async getNextNonce(): Promise<number> {
+    // 等待之前的 nonce 获取操作完成
+    await this.nonceLock;
+    
+    // 创建新的锁
+    let releaseLock: () => void;
+    this.nonceLock = new Promise((resolve) => {
+      releaseLock = resolve as () => void;
+    });
+    
     try {
+      // 直接从区块链获取最新的 nonce，使用 'pending' 状态确保包含待处理交易
       const currentNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-      // 确保nonce始终是最新的
+      
+      logger.info('Retrieved latest nonce from blockchain:', { 
+        address: this.wallet.address,
+        nonce: currentNonce,
+        timestamp: new Date().toISOString()
+      });
+      
+      // 更新缓存（仅用于日志记录）
       this.nonce = currentNonce;
-      return this.nonce++;
+      
+      // 释放锁
+      releaseLock!();
+      
+      // 直接返回从区块链查询的 nonce，不递增缓存
+      return currentNonce;
     } catch (error) {
-      logger.error('Failed to get nonce:', error);
-      // 如果获取失败，使用当前nonce并递增
-      return this.nonce++;
+      logger.error('Failed to get nonce from blockchain:', error);
+      
+      // 如果查询失败，再次尝试使用 'latest' 状态
+      try {
+        const latestNonce = await this.provider.getTransactionCount(this.wallet.address, 'latest');
+        logger.warn('Fallback to latest nonce:', { nonce: latestNonce });
+        this.nonce = latestNonce;
+        
+        // 释放锁
+        releaseLock!();
+        
+        return latestNonce;
+      } catch (fallbackError) {
+        logger.error('Fallback nonce query also failed:', fallbackError);
+        
+        // 释放锁
+        releaseLock!();
+        
+        throw new BlockchainError(`Failed to get nonce: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
 

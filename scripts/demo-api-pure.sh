@@ -23,6 +23,10 @@ RPC_URL="${RPC_URL:-http://localhost:8545}"
 ANVIL_PID=""
 API_SERVER_PID=""
 
+# 获取项目根目录
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 # 已部署的合约地址
 PAIR_FACTORY_ADDRESS=""
 NFT_CONTRACT_ADDRESS=""
@@ -212,9 +216,7 @@ start_api_server() {
             return 1
         fi
     else
-        # 获取项目根目录
-        SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-        PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+        # API 目录路径
         API_DIR="$PROJECT_ROOT/api"
         
         if [[ ! -d "$API_DIR" ]]; then
@@ -891,6 +893,12 @@ trap cleanup EXIT INT TERM
 main() {
     show_title
     check_dependencies
+    
+    # 写入 PRIVATE_KEY 到项目根目录的 .env 文件
+    echo "PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" > "$PROJECT_ROOT/.env"
+    echo -e "${GREEN}✅ 已将 PRIVATE_KEY 写入 $PROJECT_ROOT/.env${NC}"
+    echo ""
+    
     wait_for_user
     
     start_anvil || { echo -e "${RED}❌ Anvil 启动失败，脚本终止${NC}"; exit 1; }

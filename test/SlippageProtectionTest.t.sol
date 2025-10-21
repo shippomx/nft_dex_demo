@@ -60,8 +60,8 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
     function testBuySlippageProtectionWithinLimit() public {
         uint256 currentPrice = amm.getCurrentPrice();
         
-        // 测试 4% 滑点（在 5% 限制内）
-        uint256 maxPrice = currentPrice + (currentPrice * 400) / FEE_DENOMINATOR;
+        // 测试 5% 滑点（在 5% 限制内）
+        uint256 maxPrice = currentPrice + (currentPrice * MAX_SLIPPAGE) / FEE_DENOMINATOR;
         
         (uint256 totalCost,) = amm.getBuyQuote();
         
@@ -71,7 +71,7 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
         // 应该成功，因为滑点在限制内
         amm.buyNFT{value: totalCost}(maxPrice);
         
-        console.log("4% slippage test passed");
+        console.log("5% slippage test passed");
     }
     
     function testBuySlippageProtectionExceedsLimit() public {
@@ -79,7 +79,7 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
         
         // 测试 6% 滑点（超过 5% 限制）
         // 设置一个低于当前价格的最大价格，这样实际价格会超过最大价格
-        uint256 maxPrice = currentPrice - (currentPrice * 100) / FEE_DENOMINATOR; // 比当前价格低 1%
+        uint256 maxPrice = currentPrice - (currentPrice * MAX_SLIPPAGE) / FEE_DENOMINATOR; // 比当前价格低 5%
         
         (uint256 totalCost,) = amm.getBuyQuote();
         
@@ -120,8 +120,8 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
         // 获取出售报价
         (uint256 netAmount,) = amm.getSellQuote();
         
-        // 测试 4% 滑点（在 5% 限制内）
-        uint256 minPrice = netAmount - (netAmount * 400) / FEE_DENOMINATOR;
+        // 测试 5% 滑点（在 5% 限制内）
+        uint256 minPrice = netAmount - (netAmount * MAX_SLIPPAGE) / FEE_DENOMINATOR;
         
         vm.startPrank(trader);
         nft.approve(address(amm), 1);
@@ -130,7 +130,7 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
         amm.sellNFT(1, minPrice);
         vm.stopPrank();
         
-        console.log("4% sell slippage test passed");
+        console.log("5% sell slippage test passed");
     }
     
     function testSellSlippageProtectionExceedsLimit() public {
@@ -144,7 +144,7 @@ contract SlippageProtectionTest is Test, IERC721Receiver {
         (uint256 netAmount,) = amm.getSellQuote();
         
         // 测试滑点保护：设置一个高于净收入的最小价格
-        uint256 minPrice = netAmount + (netAmount * 100) / FEE_DENOMINATOR; // 比净收入高 1%
+        uint256 minPrice = netAmount + (netAmount * MAX_SLIPPAGE) / FEE_DENOMINATOR; // 比净收入高 5%
         
         vm.startPrank(trader);
         nft.approve(address(amm), 1);

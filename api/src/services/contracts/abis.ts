@@ -92,7 +92,7 @@ export const PairFactory_ABI = [
   
   // 池子管理方法
   "function createPool(address nftContract) external returns (address poolAddress)",
-  "function getPoolAddress(address nftContract) external view returns (address poolAddress)",
+  "function getPool(address nftContract) external view returns (address poolAddress)",
   
   // 管理方法
   "function owner() public view returns (address)",

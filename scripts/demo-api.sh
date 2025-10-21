@@ -315,7 +315,7 @@ create_pool() {
             
             if [[ -n "$PAIR_FACTORY_ADDRESS" && "$PAIR_FACTORY_ADDRESS" != "null" ]]; then
                 # 使用 cast call 直接查询合约
-                PAIR_CONTRACT_ADDRESS=$(cast call "$PAIR_FACTORY_ADDRESS" "getPoolAddress(address)(address)" "$NFT_CONTRACT_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null)
+                PAIR_CONTRACT_ADDRESS=$(cast call "$PAIR_FACTORY_ADDRESS" "getPool(address)(address)" "$NFT_CONTRACT_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null)
                 
                 if [[ -n "$PAIR_CONTRACT_ADDRESS" && "$PAIR_CONTRACT_ADDRESS" != "0x0000000000000000000000000000000000000000" ]]; then
                     echo -e "${GREEN}✅ 从合约获取池子地址成功${NC}"
@@ -544,9 +544,9 @@ demo_trading() {
     echo "准备购买一个 NFT..."
     
     if [[ -n "$current_price" && "$current_price" != "null" ]]; then
-        # 设置 10% 滑点
-        local max_price=$(echo "$current_price * 1.1 / 1" | bc)
-        echo "最大价格: $(echo "scale=6; $max_price / 1000000000000000000" | bc) ETH (含 10% 滑点)"
+        # 设置 5% 滑点
+        local max_price=$(echo "$current_price * 1.05 / 1" | bc)
+        echo "最大价格: $(echo "scale=6; $max_price / 1000000000000000000" | bc) ETH (含 5% 滑点)"
         
         local buy_data=$(jq -n --arg price "$max_price" '{maxPrice: $price}')
         local buy_response=$(api_call "POST" "/trade/buy" "$buy_data")
@@ -579,9 +579,9 @@ demo_trading() {
     echo "准备出售 NFT (ID: 1)..."
     
     if [[ -n "$current_price" && "$current_price" != "null" ]]; then
-        # 设置 10% 滑点
-        local min_price=$(echo "$current_price * 0.9 / 1" | bc)
-        echo "最小价格: $(echo "scale=6; $min_price / 1000000000000000000" | bc) ETH (含 10% 滑点)"
+        # 设置 5% 滑点
+        local min_price=$(echo "$current_price * 0.95 / 1" | bc)
+        echo "最小价格: $(echo "scale=6; $min_price / 1000000000000000000" | bc) ETH (含 5% 滑点)"
         
         local sell_data=$(jq -n --arg id "1" --arg price "$min_price" '{tokenId: ($id | tonumber), minPrice: $price}')
         local sell_response=$(api_call "POST" "/trade/sell" "$sell_data")

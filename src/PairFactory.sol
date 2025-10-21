@@ -48,7 +48,7 @@ contract PairFactory is Ownable {
      * @param nftContract NFT 合约地址
      * @return poolAddress 计算出的池子地址
      */
-    function getPoolAddress(address nftContract) public view returns (address poolAddress) {
+    function getPool(address nftContract) public view returns (address poolAddress) {
         bytes32 salt = keccak256(abi.encodePacked(nftContract, address(0)));
         bytes memory bytecode = abi.encodePacked(type(Pair).creationCode, abi.encode(nftContract));
         poolAddress = Create2.computeAddress(salt, keccak256(bytecode));

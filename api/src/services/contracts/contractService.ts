@@ -503,7 +503,7 @@ export class ContractService {
           poolAddress = await web3Service.callContract(
             this.addresses.pairFactory,
             PairFactory_ABI as any,
-            'getPoolAddress',
+            'getPool',
             [nftContractAddress]
           );
           logger.info('Pool address retrieved from contract:', { poolAddress });
@@ -519,7 +519,7 @@ export class ContractService {
           const finalPoolAddress = await web3Service.callContract(
             this.addresses.pairFactory,
             PairFactory_ABI as any,
-            'getPoolAddress',
+            'getPool',
             [nftContractAddress]
           );
           if (finalPoolAddress && finalPoolAddress !== '0x0000000000000000000000000000000000000000') {
@@ -634,7 +634,7 @@ export class ContractService {
       const poolAddress = await web3Service.callContract(
         this.addresses.pairFactory,
         PairFactory_ABI as any,
-        'getPoolAddress',
+        'getPool',
         [nftContractAddress]
       );
 

@@ -399,7 +399,7 @@ create_pool() {
             
             if [[ -n "$PAIR_FACTORY_ADDRESS" && "$PAIR_FACTORY_ADDRESS" != "null" ]]; then
                 # 使用 cast call 直接查询合约
-                PAIR_CONTRACT_ADDRESS=$(cast call "$PAIR_FACTORY_ADDRESS" "getPoolAddress(address)(address)" "$NFT_CONTRACT_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null)
+                PAIR_CONTRACT_ADDRESS=$(cast call "$PAIR_FACTORY_ADDRESS" "getPool(address)(address)" "$NFT_CONTRACT_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null)
                 
                 if [[ -n "$PAIR_CONTRACT_ADDRESS" && "$PAIR_CONTRACT_ADDRESS" != "0x0000000000000000000000000000000000000000" ]]; then
                     echo -e "${GREEN}✅ 从合约获取池子地址成功${NC}"
@@ -678,15 +678,15 @@ demo_trading() {
     echo "准备购买一个 NFT..."
     echo ""
     
-    # 设置 10% 滑点
+    # 设置 5% 滑点
     # current_price 是 ETH 字符串（如 "0.1"），计算带滑点的价格
-    local max_price_eth=$(echo "scale=18; $current_price * 1.1" | bc)
+    local max_price_eth=$(echo "scale=18; $current_price * 1.05" | bc)
     # 规范化为以数字开头的十进制（避免 .11 这种形式导致 schema 校验失败）
     if [[ "$max_price_eth" == .* ]]; then
         max_price_eth="0$max_price_eth"
     fi
     echo "当前价格: $current_price ETH"
-    echo "最大价格: $max_price_eth ETH (含 10% 滑点)"
+    echo "最大价格: $max_price_eth ETH (含 5% 滑点)"
     
     # API 期望 ETH 字符串，会自动转换为 wei，所以直接传递 ETH 值
     local buy_data=$(jq -n --arg price "$max_price_eth" '{maxPrice: $price}')
@@ -738,15 +738,15 @@ demo_trading() {
     fi
     echo "将出售的 Token ID: $token_id_to_sell"
 
-    # 设置 10% 滑点
+    # 设置 5% 滑点
     # sell_current_price 是 ETH 字符串（如 "0.083..."），计算带滑点的价格
-    local min_price_eth=$(echo "scale=18; $sell_current_price * 0.9" | bc)
+    local min_price_eth=$(echo "scale=18; $sell_current_price * 0.95" | bc)
     # 规范化，避免以 . 开头
     if [[ "$min_price_eth" == .* ]]; then
         min_price_eth="0$min_price_eth"
     fi
     echo "卖出价格: $sell_current_price ETH"
-    echo "最小价格: $min_price_eth ETH (含 10% 滑点)"
+    echo "最小价格: $min_price_eth ETH (含 5% 滑点)"
     
     # 确保池子对该 tokenId 拥有转移权限（approve）
     local approve_payload=$(jq -n \

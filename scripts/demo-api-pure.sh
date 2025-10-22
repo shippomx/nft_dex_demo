@@ -108,6 +108,13 @@ check_dependencies() {
         done
         exit 1
     fi
+
+    cp "$PROJECT_ROOT/api/dev.env" "$PROJECT_ROOT/.env"
+    cp "$PROJECT_ROOT/api/dev.env" "$PROJECT_ROOT/api/.env"
+
+    cd "$PROJECT_ROOT/api"
+    npm install
+    cd "$PROJECT_ROOT"
 }
 
 # API 调用函数
@@ -894,11 +901,8 @@ main() {
     show_title
     check_dependencies
     
-    # 写入 PRIVATE_KEY 到项目根目录的 .env 文件
-    echo "PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" > "$PROJECT_ROOT/.env"
-    echo -e "${GREEN}✅ 已将 PRIVATE_KEY 写入 $PROJECT_ROOT/.env${NC}"
-    echo ""
-    
+    forge build
+ 
     wait_for_user
     
     start_anvil || { echo -e "${RED}❌ Anvil 启动失败，脚本终止${NC}"; exit 1; }
